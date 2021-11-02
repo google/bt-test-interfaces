@@ -8,7 +8,7 @@ https://developers.google.com/protocol-buffers) as Interfaces Definition
 Language.
 
 All guidelines from the [protocol buffers style guide](
-https://developers.google.com/protocol-buffers/docs/style) apply for them.
+https://developers.google.com/protocol-buffers/docs/style) apply to them.
 
 ## Additional guidelines
 
@@ -17,8 +17,8 @@ consistency and improve readability.
 
 ### Use proto3 syntax
 
-The protobuf compiler supports proto2 and proto3 syntax. Proto3 is the
-latest version, we should use it.
+The protobuf compiler currently supports proto2 and proto3 syntax, but proto3
+should be used, as it is the latest version.
 
 ### Use names from the Bluetooth specification nomenclature
 
