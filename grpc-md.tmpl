@@ -2,27 +2,27 @@ Project: /blueberry/_project.yaml
 Book: /blueberry/_book.yaml
 
 {{range .Files}}
-# {{.Name | replace "googledata/devsite/content/en/blueberry/reference/" "" | replace ".proto" "" | upper}} API
+# {{.Name | replace "blueberry/reference/" "" | replace ".proto" "" | upper}} API
 
 ## Index
 
-{{range .Services}}
+{{range .Services -}}
 * <code><a href=#{{.FullName}}>{{.Name}}</a></code> (interface)
 {{end}}
-{{range .Messages}}
+{{range .Messages -}}
 * <code><a href=#{{.FullName}}>{{.Name}}</a></code> (message)
 {{end}}
-{{range .Enums}}
+{{range .Enums -}}
 * <code><a href=#{{.FullName}}>{{.Name}}</a></code> (enum)
 {{end}}
 
-{{range .Services}}
+{{range .Services -}}
 <a name="{{.FullName}}"></a>
 ## {{.Name}}
 
 {{.Description}}
 
-{{range .Methods}}
+{{range .Methods -}}
 ### {{.Name}}
 <code> rpc {{.Name}}({{if .RequestStreaming}}stream {{end}}<a href=#{{.RequestFullType}}>{{.RequestLongType}}</a>) returns ({{if .ResponseStreaming}}stream {{end}}<a href=#{{.ResponseFullType}}>{{.ResponseLongType}}</a>)</code>
 
@@ -32,7 +32,7 @@ Book: /blueberry/_book.yaml
 
 {{end}} <!-- end Services -->
 
-{{range .Messages}}
+{{range .Messages -}}
 <a name="{{.FullName}}"></a>
 ## {{.Name}}
 
@@ -44,10 +44,15 @@ Book: /blueberry/_book.yaml
         <tr><th colspan="2">Fields</th></tr>
     </thead>
     <tbody>
-    {{range .Fields}}
+    {{range .Fields -}}
         <tr>
-            <td><code>{{.Name}}</code></td>
-            <td><code><a href=#{{.FullType}}>{{.LongType}}</a></code><br><br>{{.Description}}{{if .DefaultValue}}<br><br>Default: <code>{{.DefaultValue}}</code>{{end}}</td>
+            <td><code>{{if .IsOneof}}<a href=https://developers.google.com/protocol-buffers/docs/proto3#oneof>oneof</a> {{.OneofDecl}}.{{end}}{{.Name}}</code></td>
+            <td>
+                <code><a href=#{{.FullType}}>{{.LongType}}</a></code>
+                <br><br>
+                {{.Description}}
+                {{if .DefaultValue}}<br><br>Default: <code>{{.DefaultValue}}</code>{{end}}
+            </td>
         </tr>
     {{end}}
     </tbody>
@@ -56,7 +61,7 @@ Book: /blueberry/_book.yaml
 
 {{end}} <!-- end Messages-->
 
-{{range .Enums}}
+{{range .Enums -}}
 <a name="{{.FullName}}"></a>
 ## {{.LongName}}
 
@@ -65,10 +70,14 @@ Book: /blueberry/_book.yaml
         <tr><th colspan="2">Enums</th></tr>
     </thead>
     <tbody>
-    {{range .Values}}
+    {{range .Values -}}
         <tr>
             <td><code>{{.Name}}</code></td>
-            <td><code>{{.Number}}</code><br><br>{{.Description}}</td>
+            <td>
+                <code>{{.Number}}</code>
+                <br><br>
+                {{.Description}}
+            </td>
         </tr>
     {{end}}
     </tbody>
