@@ -1,3 +1,6 @@
+Project: /blueberry/_project.yaml
+Book: /blueberry/_book.yaml
+
 # Bluetooth Test Interfaces Summary
 
 The Bluetooth test interfaces are Remote Procedure Call (RPC) interfaces
@@ -8,4 +11,5 @@ blueberry/reference/doc/style-guide).
 
 A test interface is defined for each Bluetooth profile. They currently include:
 
-* A2DP API: work in progress.
+* **Host API**: work in progress.
+* **A2DP API**: work in progress.
