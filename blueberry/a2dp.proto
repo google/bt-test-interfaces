@@ -1,12 +1,12 @@
 syntax = "proto3";
 
-option java_outer_classname = "A2DPProto";
-
 package blueberry;
 
 import "blueberry/host.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/wrappers.proto";
+
+option java_outer_classname = "A2DPProto";
 
 // Service to trigger A2DP (Advanced Audio Distribution Profile) procedures.
 //
@@ -71,9 +71,11 @@ service A2DP {
   // Close a stream, the source or sink tokens must not be reused afterwards.
   rpc Close(CloseRequest) returns (CloseResponse);
   // Get the `AudioEncoding` value of a stream
-  rpc GetAudioEncoding(GetAudioEncodingRequest) returns (GetAudioEncodingResponse);
+  rpc GetAudioEncoding(GetAudioEncodingRequest)
+      returns (GetAudioEncodingResponse);
   // Playback audio by a `Source`
-  rpc PlaybackAudio(stream PlaybackAudioRequest) returns (PlaybackAudioResponse);
+  rpc PlaybackAudio(stream PlaybackAudioRequest)
+      returns (PlaybackAudioResponse);
   // Capture audio from a `Sink`
   rpc CaptureAudio(CaptureAudioRequest) returns (stream CaptureAudioResponse);
 }
@@ -192,15 +194,15 @@ message StartRequest {
 
 // Response for the `Start` method.
 message StartResponse {
-    // Result of the `Start` call.
-    oneof result {
-        // Stream successfully started.
-        google.protobuf.Empty started = 1;
-        // Stream is already in AVDTP_STREAMING state.
-        google.protobuf.Empty already_started = 2;
-        // The Connection disconnected.
-        google.protobuf.Empty disconnected = 3;
-    }
+  // Result of the `Start` call.
+  oneof result {
+    // Stream successfully started.
+    google.protobuf.Empty started = 1;
+    // Stream is already in AVDTP_STREAMING state.
+    google.protobuf.Empty already_started = 2;
+    // The Connection disconnected.
+    google.protobuf.Empty disconnected = 3;
+  }
 }
 
 // Request for the `Suspend` method.
@@ -214,15 +216,15 @@ message SuspendRequest {
 
 // Response for the `Suspend` method.
 message SuspendResponse {
-    // Result of the `Suspend` call.
-    oneof result {
-        // Stream successfully suspended.
-        google.protobuf.Empty suspended = 1;
-        // Stream is already in AVDTP_OPEN state.
-        google.protobuf.Empty already_suspended = 2;
-        // The Connection disconnected.
-        google.protobuf.Empty disconnected = 3;
-    }
+  // Result of the `Suspend` call.
+  oneof result {
+    // Stream successfully suspended.
+    google.protobuf.Empty suspended = 1;
+    // Stream is already in AVDTP_OPEN state.
+    google.protobuf.Empty already_suspended = 2;
+    // The Connection disconnected.
+    google.protobuf.Empty disconnected = 3;
+  }
 }
 
 // Request for the `Close` method.

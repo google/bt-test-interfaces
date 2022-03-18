@@ -1,10 +1,10 @@
 syntax = "proto3";
 
-option java_outer_classname = "HostProto";
-
 package blueberry;
 
 import "google/protobuf/empty.proto";
+
+option java_outer_classname = "HostProto";
 
 // Service to trigger Bluetooth Host procedures
 //
@@ -28,11 +28,13 @@ service Host {
   rpc GetConnection(GetConnectionRequest) returns (GetConnectionResponse);
   // Wait for an ACL BR/EDR connection from a peer.
   rpc WaitConnection(WaitConnectionRequest) returns (WaitConnectionResponse);
-  // Disconnect an ACL BR/EDR connection. The Connection must not be reused afterwards.
+  // Disconnect an ACL BR/EDR connection. The Connection must not be reused
+  // afterwards.
   rpc Disconnect(DisconnectRequest) returns (DisconnectResponse);
   // Read the local Bluetooth device address.
   // This should return the same value as a Read BD_ADDR HCI command.
-  rpc ReadLocalAddress(google.protobuf.Empty) returns (ReadLocalAddressResponse);
+  rpc ReadLocalAddress(google.protobuf.Empty)
+      returns (ReadLocalAddressResponse);
 }
 
 // A Token representing an ACL connection.
