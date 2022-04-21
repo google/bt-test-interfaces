@@ -2,10 +2,10 @@
 
 toc:
 - title: API Summary
-  path: /blueberry/reference/summary
+  path: /pandora/reference/summary
 - title: APIs
   section:
   - title: Host
-    path: /blueberry/reference/host
+    path: /pandora/reference/host
   - title: A2DP
-    path: /blueberry/reference/a2dp
+    path: /pandora/reference/a2dp

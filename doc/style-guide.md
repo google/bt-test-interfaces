@@ -1,5 +1,5 @@
-Project: /blueberry/_project.yaml
-Book: /blueberry/_book.yaml
+Project: /pandora/_project.yaml
+Book: /pandora/_book.yaml
 
 # Style Guide
 

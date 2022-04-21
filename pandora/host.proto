@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package blueberry;
+package pandora;
 
 import "google/protobuf/empty.proto";
 
