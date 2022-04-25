@@ -1,8 +1,5 @@
-Project: /pandora/_project.yaml
-Book: /pandora/_book.yaml
-
 {{range .Files}}
-# {{.Name | replace "pandora/reference/" "" | replace ".proto" "" | upper}} API
+# {{.Name | base | replace ".proto" "" | upper}} API
 
 ## Index
 

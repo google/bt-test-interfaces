@@ -1,6 +1,3 @@
-Project: /pandora/_project.yaml
-Book: /pandora/_book.yaml
-
 # Style Guide
 
 The Bluetooth test interfaces uses [protocol buffers v3](
@@ -98,7 +95,7 @@ streaming) and you should avoid it otherwise.
 
 ### Use typed tokens to represent a resource
 
-This allows the implementations to wrap their internal format for representing
+This allows the implementation to wrap their internal format for representing
 the resource inside an opaque message instead of converting them.
 
 ```protobuf

@@ -1,6 +1,3 @@
-Project: /pandora/_project.yaml
-Book: /pandora/_book.yaml
-
 # Bluetooth test interfaces
 
 The Pandora Bluetooth test interfaces are Remote Procedure Call (RPC) interfaces
@@ -11,13 +8,6 @@ While all Bluetooth stacks are different in their supported profiles, features,
 and corresponding APIs, the goal of Pandora is to provide a set of unified
 test interfaces which they could all implement, so we can reuse and scale
 testing tools and processes across all of them.
-
-The Pandora Bluetooth test interfaces can be found in the
-[`/bt-test-interfaces`](https://pandora.git.corp.google.com/bt-test-interfaces/)
-on Pandora GoB. They are also copied to Bluetooth Host stacks implementing them
-(such as [Android](
-https://cs.android.com/android/platform/superproject/+/master:packages/modules/Bluetooth/android/blueberry/server/proto/pandora/)
-and Eiffel).
 
 ## Requirements
 
@@ -44,16 +34,13 @@ interfaces may also be added if necessary (but should be avoided as much as
 possible).
 
 **The same test interface can be implemented at different levels**: for
-instance, in Android (see figure below showing an example for [PTS-bot](
-/pandora/guides/pts-bot/overview)), the Pandora Bluetooth test interfaces can be
-implemented both on top of Topshim (which is a Rust shim layer just on top of
-the stack), which is advantageous as tests running at that level can apply to
-Chrome OS as well, or on top of the Android Bluetooth SDK (Java) which is
-advantageous for Mainline, since the Bluetooth module includes both the stack
-and the SDK.
+instance, in Android, the Pandora Bluetooth test interfaces can be implemented
+both on top of Topshim (which is a Rust shim layer just on top of the stack),
+which is advantageous as tests running at that level can apply to Chrome OS as
+well, or on top of the Android Bluetooth SDK (Java) which is advantageous for
+Mainline, since the Bluetooth module includes both the stack and the SDK.
 
-![PTS-bot on Android](
-/pandora/reference/doc/images/pts-bot-aosp.svg)
+![PTS-bot on Android](/images/pts-bot-aosp.svg)
 
 ## Optional features
 
