@@ -40,7 +40,7 @@ which is advantageous as tests running at that level can apply to Chrome OS as
 well, or on top of the Android Bluetooth SDK (Java) which is advantageous for
 Mainline, since the Bluetooth module includes both the stack and the SDK.
 
-![PTS-bot on Android](/images/pts-bot-aosp.svg)
+![PTS-bot on Android](images/pts-bot-aosp.svg)
 
 ## Optional features
 
