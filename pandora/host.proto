@@ -14,25 +14,30 @@
 
 syntax = "proto3";
 
+option java_outer_classname = "HostProto";
+
 package pandora;
 
 import "google/protobuf/empty.proto";
 
-option java_outer_classname = "HostProto";
-
 // Service to trigger Bluetooth Host procedures
 //
-// Requirements for the implementer:
 // At startup, the Host must be in BR/EDR connectable mode
 // (see GAP connectability modes)
 service Host {
-  // Reset the host.
-  // **After** responding to this command, the GRPC server should loose
+  // Hard reset the host.
+  // **After** responding to this command, the gRPC server should loose
   // all its state.
   // This is comparable to a process restart or an hardware reset.
-  // The GRPC server might take some time to be available after
+  // The gRPC server might take some time to be available after
   // this command.
-  rpc Reset(google.protobuf.Empty) returns (google.protobuf.Empty);
+  rpc HardReset(google.protobuf.Empty) returns (google.protobuf.Empty);
+  // Soft reset the host by performing an HCI reset. Previous bonds must
+  // not be removed and the gRPC server must not be restarted.
+  rpc SoftReset(google.protobuf.Empty) returns (google.protobuf.Empty);
+  // Read the local Bluetooth device address.
+  // This should return the same value as a Read BD_ADDR HCI command.
+  rpc ReadLocalAddress(google.protobuf.Empty) returns (ReadLocalAddressResponse);
   // Create an ACL BR/EDR connection to a peer.
   // This should send a CreateConnection on the HCI level.
   // If the two devices have not established a previous bond,
@@ -42,27 +47,69 @@ service Host {
   rpc GetConnection(GetConnectionRequest) returns (GetConnectionResponse);
   // Wait for an ACL BR/EDR connection from a peer.
   rpc WaitConnection(WaitConnectionRequest) returns (WaitConnectionResponse);
-  // Disconnect an ACL BR/EDR connection. The Connection must not be reused
-  // afterwards.
+  // Disconnect an ACL BR/EDR connection. The Connection must not be reused afterwards.
   rpc Disconnect(DisconnectRequest) returns (DisconnectResponse);
-  // Read the local Bluetooth device address.
-  // This should return the same value as a Read BD_ADDR HCI command.
-  rpc ReadLocalAddress(google.protobuf.Empty)
-      returns (ReadLocalAddressResponse);
+  // Create a LE connection.
+  rpc ConnectLE(ConnectLERequest) returns (ConnectLEResponse);
+  // Get an active LE connection to a peer.
+  rpc GetLEConnection(GetLEConnectionRequest) returns (GetLEConnectionResponse);
+  // Disconnect ongoing LE connection.
+  rpc DisconnectLE(DisconnectLERequest) returns (google.protobuf.Empty);
+  // Create and enable an advertising set using legacy or extended advertising,
+  // except periodic advertising.
+  rpc StartAdvertising(StartAdvertisingRequest) returns (StartAdvertisingResponse);
+  // Create and enable a periodic advertising set.
+  rpc StartPeriodicAdvertising(StartPeriodicAdvertisingRequest) returns (StartPeriodicAdvertisingResponse);
+  // Remove an advertising set.
+  rpc StopAdvertising(StopAdvertisingRequest) returns (StopAdvertisingResponse);
+  // Run BR/EDR inquiry and returns each device found
+  rpc RunInquiry(RunInquiryRequest) returns (stream RunInquiryResponse);
+  // Run LE discovery (scanning) and return each device found
+  rpc RunDiscovery(RunDiscoveryRequest) returns (stream RunDiscoveryResponse);
+  // Set BREDR connectability mode
+  rpc SetConnectabilityMode(SetConnectabilityModeRequest) returns (SetConnectabilityModeResponse);
+  // Set BREDR discoverable mode
+  rpc SetDiscoverabilityMode(SetDiscoverabilityModeRequest) returns (SetDiscoverabilityModeResponse);
+  // Get device name from connection
+  rpc GetDeviceName(GetDeviceNameRequest) returns (GetDeviceNameResponse);
+}
+
+// Response of the `ReadLocalAddress` method.
+message ReadLocalAddressResponse {
+  // Local Bluetooth Device Address as array of 6 bytes.
+  bytes address = 1;
 }
 
 // A Token representing an ACL connection.
 // It's acquired via a Connect on the Host service.
 message Connection {
-  // Opaque value filled by the GRPC server, must not
-  // be modified nor crafted.
+  // Opaque value filled by the gRPC server, must not be modified nor crafted
+  // Android specific: it's secretly an encoded InternelConnectionRef created using newConnection
   bytes cookie = 1;
+}
+
+// Internal representation of a Connection - not exposed to clients, included here
+// just for code-generation convenience
+message InternalConnectionRef {
+  bytes address = 1;
+  Transport transport = 2;
+}
+
+// WARNING: Leaving this enum empty will default to BREDR, so make sure that this is a
+// valid default whenever used, and that we always populate this value.
+enum Transport {
+  TRANSPORT_BREDR = 0;
+  TRANSPORT_LE = 1;
 }
 
 // Request of the `Connect` method.
 message ConnectRequest {
   // Peer Bluetooth Device Address as array of 6 bytes.
   bytes address = 1;
+  // Whether we want to initiate pairing as part of the connection
+  bool skip_pairing = 2;
+  // Whether confirmation prompts should be auto-accepted or handled manually
+  bool manually_confirm = 3;
 }
 
 // Response of the `Connect` method.
@@ -113,8 +160,154 @@ message DisconnectRequest {
 // Response of the `Disconnect` method.
 message DisconnectResponse {}
 
-// Response of the `ReadLocalAddress` method.
-message ReadLocalAddressResponse {
-  // Local Bluetooth Device Address as array of 6 bytes.
+// Request of the `ConnectLE` method
+message ConnectLERequest {
   bytes address = 1;
+}
+
+// Response of the `ConnectLE` method
+message ConnectLEResponse {
+  oneof result {
+      Connection connection = 1;
+  }
+}
+
+// Request of the `GetLEConnection` method
+message GetLEConnectionRequest {
+  bytes address = 1;
+}
+
+// Response of the `GetLEConnection` method
+message GetLEConnectionResponse {
+  oneof result {
+    Connection connection = 1;
+  }
+}
+
+// Request of the `DisconnectLE` method
+message DisconnectLERequest {
+  Connection connection = 1;
+}
+
+message AdvertisingHandle {
+  bytes cookie = 1;
+}
+
+enum AddressType {
+  PUBLIC = 0x00;
+  RANDOM = 0x01;
+}
+
+// Advertising Data including one or multiple AD types.
+// Since the Flags AD type is mandatory, it must be automatically set by the
+// IUT.
+// include_<AD type> fields are used for AD type which are generally not
+// exposed and that must be set by the IUT when specified.
+// See Core Supplement, Part A, Data Types for details
+message AdvertisingData {
+  repeated string service_uuids = 1;
+  bool include_local_name = 2;
+  bytes manufacturer_specific_data = 3;
+  bool include_tx_power_level = 4;
+  bool include_peripheral_connection_interval_range = 5;
+  repeated string service_solicitation = 6;
+  map<string, bytes> service_data = 7;
+  // Must be on 16 bits.
+  uint32 appearance = 8;
+  repeated bytes public_target_addresses = 9;
+  repeated bytes random_target_addresses = 10;
+  bool include_advertising_interval = 11;
+  bool include_le_address = 12;
+  bool include_le_role = 13;
+  string uri = 14;
+}
+
+message StartAdvertisingRequest {
+  bool legacy = 1;
+  DiscoverabilityMode discovery_mode = 2;
+  ConnectabilityMode connectability_mode = 3;
+  AddressType own_address_type = 4;
+  // If none, undirected.
+  bytes peer_address = 5;
+  AdvertisingData advertising_data = 6;
+  // If none, not scannable.
+  AdvertisingData scan_response_data = 7;
+}
+
+message StartAdvertisingResponse {
+  AdvertisingHandle handle = 1;
+}
+
+message StartPeriodicAdvertisingRequest {
+  AddressType own_address_type = 1;
+  // If none, undirected.
+  bytes peer_address = 2;
+  uint32 interval_min = 3;
+  uint32 interval_max = 4;
+  AdvertisingData advertising_data = 5;
+}
+
+message StartPeriodicAdvertisingResponse {
+  AdvertisingHandle handle = 1;
+}
+
+message StopAdvertisingRequest {
+  AdvertisingHandle handle = 1;
+}
+
+message StopAdvertisingResponse {}
+
+message RunInquiryRequest {
+}
+
+message RunInquiryResponse {
+  repeated Device device = 1;
+}
+
+message RunDiscoveryRequest {
+}
+
+message RunDiscoveryResponse {
+  Device device = 1;
+  uint32 flags = 2;
+}
+
+message Device {
+  string name = 1;
+  bytes address = 2;
+}
+
+// 5.3 Vol 3C 4.1 Discoverability Modes
+enum DiscoverabilityMode {
+  DISCOVERABILITY_UNSPECIFIED = 0;
+  DISCOVERABILITY_NONE = 1;
+  DISCOVERABILITY_LIMITED = 2;
+  DISCOVERABILITY_GENERAL = 3;
+}
+
+// 5.3 Vol 3C 4.2 Connectability Modes
+enum ConnectabilityMode {
+  CONNECTABILITY_UNSPECIFIED = 0;
+  CONNECTABILITY_NOT_CONNECTABLE = 1;
+  CONNECTABILITY_CONNECTABLE = 2;
+}
+
+message SetConnectabilityModeRequest {
+  ConnectabilityMode connectability = 1;
+}
+
+message SetConnectabilityModeResponse {}
+
+message SetDiscoverabilityModeRequest {
+  DiscoverabilityMode discoverability = 1;
+}
+
+message SetDiscoverabilityModeResponse {}
+
+message GetDeviceNameRequest {
+  Connection connection = 1;
+}
+
+message GetDeviceNameResponse {
+  string name = 1;
 }
