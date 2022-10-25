@@ -48,7 +48,7 @@ service Host {
   // Wait for an ACL BR/EDR connection from a peer.
   rpc WaitConnection(WaitConnectionRequest) returns (WaitConnectionResponse);
   // Disconnect an ACL BR/EDR connection. The Connection must not be reused afterwards.
-  rpc Disconnect(DisconnectRequest) returns (DisconnectResponse);
+  rpc Disconnect(DisconnectRequest) returns (google.protobuf.Empty);
   // Create a LE connection.
   rpc ConnectLE(ConnectLERequest) returns (ConnectLEResponse);
   // Get an active LE connection to a peer.
@@ -61,11 +61,13 @@ service Host {
   // Create and enable a periodic advertising set.
   rpc StartPeriodicAdvertising(StartPeriodicAdvertisingRequest) returns (StartPeriodicAdvertisingResponse);
   // Remove an advertising set.
-  rpc StopAdvertising(StopAdvertisingRequest) returns (StopAdvertisingResponse);
+  rpc StopAdvertising(StopAdvertisingRequest) returns (google.protobuf.Empty);
   // Run BR/EDR inquiry and returns each device found
   rpc RunInquiry(RunInquiryRequest) returns (stream RunInquiryResponse);
   // Run LE discovery (scanning) and return each device found
   rpc RunDiscovery(RunDiscoveryRequest) returns (stream RunDiscoveryResponse);
+  // Force stop LE discovery (scanning)
+  rpc StopDiscovery(google.protobuf.Empty) returns (google.protobuf.Empty);
   // Set BREDR connectability mode
   rpc SetConnectabilityMode(SetConnectabilityModeRequest) returns (SetConnectabilityModeResponse);
   // Set BREDR discoverable mode
@@ -157,12 +159,10 @@ message DisconnectRequest {
   Connection connection = 1;
 }
 
-// Response of the `Disconnect` method.
-message DisconnectResponse {}
-
 // Request of the `ConnectLE` method
 message ConnectLERequest {
   bytes address = 1;
+  AddressType address_type = 2;
 }
 
 // Response of the `ConnectLE` method
@@ -229,9 +229,10 @@ message StartAdvertisingRequest {
   AddressType own_address_type = 4;
   // If none, undirected.
   bytes peer_address = 5;
-  AdvertisingData advertising_data = 6;
+  AddressType peer_address_type = 6;
+  AdvertisingData advertising_data = 7;
   // If none, not scannable.
-  AdvertisingData scan_response_data = 7;
+  AdvertisingData scan_response_data = 8;
 }
 
 message StartAdvertisingResponse {
@@ -254,8 +255,6 @@ message StartPeriodicAdvertisingResponse {
 message StopAdvertisingRequest {
   AdvertisingHandle handle = 1;
 }
-
-message StopAdvertisingResponse {}
 
 message RunInquiryRequest {
 }
