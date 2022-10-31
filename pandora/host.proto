@@ -363,7 +363,7 @@ message StartInquiryResponse {
   uint32 page_scan_rep_mode = 2;
   uint32 class_of_device = 3;
   uint32 clock_offset = 4;
-  uint32 rssi = 5;
+  int32 rssi = 5;
   DataTypes data = 6;
 }
 
@@ -379,7 +379,12 @@ message SetConnectabilityModeRequest {
 
 // Request of the `GetRemoteName` method
 message GetRemoteNameRequest {
-  Connection connection = 1;
+  oneof remote {
+    // ACL connection with remote device.
+    Connection connection = 1;
+    // Remote Bluetooth Device address as array of 6 bytes.
+    bytes address = 2;
+  }
 }
 
 // Response of the `GetRemoteName` method
