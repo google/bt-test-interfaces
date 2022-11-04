@@ -65,12 +65,12 @@ def generate_service_method(imports, file, service, method):
         ).split('\n')
     else:
         return (
-            f'def {method.name}(self, wait_for_ready=None, **kwargs):\n'
+            f'def {method.name}(self, wait_for_ready=None, timeout=None, **kwargs):\n'
             f'    return self.channel.{input_mode}_{output_mode}(\n'
             f"        '/{file.package}.{service.name}/{method.name}',\n"
             f'        request_serializer={input_type}.SerializeToString,\n'
             f'        response_deserializer={output_type}.FromString\n'
-            f'    )({input_type}(**kwargs), wait_for_ready=wait_for_ready)'
+            f'    )({input_type}(**kwargs), wait_for_ready=wait_for_ready, timeout=timeout)'
         ).split('\n')
 
 
