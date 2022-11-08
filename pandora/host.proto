@@ -254,16 +254,18 @@ message WaitConnectionResponse {
 
 // Request of the `ConnectLE` method.
 message ConnectLERequest {
+  // Own address type.
+  OwnAddressType own_address_type = 1;
   // Peer Bluetooth device address as array of 6 bytes.
   oneof address {
     // Public device address.
-    bytes public = 1;
+    bytes public = 2;
     // Random device address.
-    bytes random = 2;
+    bytes random = 3;
     // Public identity device address.
-    bytes public_identity = 3;
+    bytes public_identity = 4;
     // Random (static) identity device address.
-    bytes random_static_identity = 4;
+    bytes random_static_identity = 5;
   }
 }
 
