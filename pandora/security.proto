@@ -1,0 +1,98 @@
+// Copyright 2022 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+option java_outer_classname = "SecurityProto";
+
+package pandora;
+
+import "google/protobuf/empty.proto";
+import "pandora/host.proto";
+
+// Service to trigger Bluetooth Host pairing procedures.
+service Security {
+  // Begin pairing asynchronously with a device. Responses will be streamed
+  // using the OnPairing method.
+  rpc Pair(PairRequest) returns (google.protobuf.Empty);
+  // Listen to pairing events.
+  // This is handled independently from connections for several reasons:
+  // - Pairing can be triggered at any time and multiple times during the
+  //   lifetime of a connection (this also explains why this is a stream).
+  // - In BR/EDR, the specification allows for a device to authenticate before
+  //   connecting when in security mode 3 (link level enforced security).
+  rpc OnPairing(stream PairingEventAnswer) returns (stream PairingEvent);
+  // Remove bond.
+  rpc DeleteBond(DeleteBondRequest) returns (google.protobuf.Empty);
+}
+
+message PairingEvent {
+  // Peer Bluetooth Device Address as array of 6 bytes.
+  bytes address = 1;
+  // Authentication method used for this pairing event.
+  oneof method {
+    // "Just Works" SSP / LE pairing association
+    // model. Confirmation is automatic.
+    google.protobuf.Empty just_works = 2;
+    // Numeric Comparison SSP / LE pairing association
+    // model. Confirmation is required.
+    uint32 numeric_comparison = 3;
+    // Passkey Entry SSP / LE pairing association model.
+    // Passkey is typed by the user.
+    // Only for LE legacy pairing or on devices without a display.
+    google.protobuf.Empty passkey_entry_request = 4;
+    // Passkey Entry SSP / LE pairing association model.
+    // Passkey is shown to the user.
+    // The peer device receives a Passkey Entry request.
+    uint32 passkey_entry_notification = 5;
+    // Legacy PIN Pairing.
+    // A PIN Code is typed by the user on IUT.
+    google.protobuf.Empty pin_code_request = 6;
+    // Legacy PIN Pairing.
+    // We generate a PIN code, and the user enters it in the peer
+    // device. While this is not part of the specification, some display
+    // devices automatically generate their PIN Code, instead of asking the
+    // user to type it.
+    bytes pin_code_notification = 7;
+  }
+}
+
+message PairingEventAnswer {
+  // Received pairing event.
+  PairingEvent event = 1;
+  // Answer when needed to the pairing event method.
+  oneof answer {
+    // Numeric Comparison confirmation.
+    // Used when pairing event method is `numeric_comparison` or `just_works`.
+    bool confirm = 2;
+    // Passkey typed by the user.
+    // Used when pairing event method is `passkey_entry_request`.
+    uint32 passkey = 3;
+    // Pin typed by the user.
+    // Used when pairing event method is `pin_code_request`.
+    bytes pin = 4;
+  };
+}
+
+// Request of the `Pair` method.
+message PairRequest {
+  // Peer connection to pair with.
+  Connection connection = 1;
+}
+
+// Request of the `DeleteBond` method.
+message DeleteBondRequest {
+  // Local Bluetooth Device Address as array of 6 bytes.
+  bytes address = 1;
+}
