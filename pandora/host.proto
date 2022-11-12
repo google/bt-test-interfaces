@@ -42,17 +42,22 @@ service Host {
   // Create an ACL BR/EDR connection to a peer.
   // If the two devices have not established a previous bond,
   // the peer must be discoverable.
-  // By default, this triggers pairing and accept it if necessary.
-  // This behavior can be changed by specifying flags in the request.
+  // Whether this also triggers pairing (i.e. authentication and/or encryption)
+  // is implementation defined:
+  // some Bluetooth Host stack trigger pairing when ACL connection is being
+  // established, others when a profile or service requiring a specific
+  // security level is being opened. If it does trigger pairing, pairing events
+  // shall be handled through `Security.OnPairing` if a corresponding stream
+  // has been opened prior to this call, otherwise, they shall be automatically
+  // confirmed by the host before this method returns.
   rpc Connect(ConnectRequest) returns (ConnectResponse);
   // Get an active ACL BR/EDR connection to a peer.
   rpc GetConnection(GetConnectionRequest) returns (GetConnectionResponse);
   // Wait for an ACL BR/EDR connection from a peer.
-  // By default, this accepts pairing if necessary.
-  // This behavior can be changed by specifying flags in the request.
   rpc WaitConnection(WaitConnectionRequest) returns (WaitConnectionResponse);
   // Create an ACL LE connection.
-  // This does not trigger pairing/encryption.
+  // Unlike BR/EDR `Connect`, this must not trigger or wait any
+  // pairing/encryption and return as soon as the connection is complete.
   rpc ConnectLE(ConnectLERequest) returns (ConnectLEResponse);
   // Get an active ACL LE connection to a peer.
   rpc GetLEConnection(GetLEConnectionRequest) returns (GetLEConnectionResponse);
@@ -196,10 +201,6 @@ message ReadLocalAddressResponse {
 message ConnectRequest {
   // Peer Bluetooth device address as array of 6 bytes.
   bytes address = 1;
-  // Whether we want to initiate pairing as part of the connection.
-  bool skip_pairing = 2;
-  // Whether confirmation prompts should be auto-accepted or handled manually.
-  bool manually_confirm = 3;
 }
 
 // Response of the `Connect` method.
@@ -212,10 +213,12 @@ message ConnectResponse {
     google.protobuf.Empty peer_not_found = 2;
     // A connection with peer already exists.
     google.protobuf.Empty connection_already_exists = 3;
+    // Pairing failure error.
+    google.protobuf.Empty pairing_failure = 4;
     // Authentication failure error.
-    google.protobuf.Empty authentication_failure = 4;
+    google.protobuf.Empty authentication_failure = 5;
     // Encryption failure error.
-    google.protobuf.Empty encryption_failure = 5;
+    google.protobuf.Empty encryption_failure = 6;
   }
 }
 
@@ -240,8 +243,6 @@ message GetConnectionResponse {
 message WaitConnectionRequest {
   // Peer Bluetooth device address as array of 6 bytes.
   bytes address = 1;
-  // Whether confirmation prompts should be auto-accepted or handled manually.
-  bool manually_confirm = 2;
 }
 
 // Response of the `WaitConnection` method.
@@ -250,8 +251,6 @@ message WaitConnectionResponse {
   oneof result {
     // Connection on `WaitConnection` success
     Connection connection = 1;
-    // Authentication failure error.
-    google.protobuf.Empty authentication_failure = 2;
   }
 }
 
