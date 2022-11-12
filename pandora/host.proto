@@ -61,17 +61,19 @@ service Host {
   // Disconnect an ACL connection.
   // The related Connection must not be reused afterwards.
   rpc Disconnect(DisconnectRequest) returns (google.protobuf.Empty);
+  // Wait for disconnection of an ACL connection.
+  rpc WaitDisconnection(WaitDisconnectionRequest) returns (google.protobuf.Empty);
   // Create and enable an advertising set using legacy or extended advertising,
   // except periodic advertising.
   rpc StartAdvertising(StartAdvertisingRequest) returns (StartAdvertisingResponse);
   // Remove an advertising set.
   rpc StopAdvertising(StopAdvertisingRequest) returns (google.protobuf.Empty);
   // Run LE scanning and return each device found.
-  // Canceling the `StartScanning` stream shall stop scanning.
-  rpc StartScanning(StartScanningRequest) returns (stream ScanningResponse);
+  // Canceling the `Scan` stream shall stop scanning.
+  rpc Scan(ScanRequest) returns (stream ScanningResponse);
   // Start BR/EDR inquiry and returns each device found.
-  // Canceling the `StartInquiry` stream shall stop inquiry.
-  rpc StartInquiry(google.protobuf.Empty) returns (stream InquiryResponse);
+  // Canceling the `Inquiry` stream shall stop inquiry.
+  rpc Inquiry(google.protobuf.Empty) returns (stream InquiryResponse);
   // Set BR/EDR discoverability mode.
   rpc SetDiscoverabilityMode(SetDiscoverabilityModeRequest) returns (google.protobuf.Empty);
   // Set BR/EDR connectability mode.
@@ -338,6 +340,12 @@ message DisconnectRequest {
   Connection connection = 1;
 }
 
+// Request of the `WaitDisconnection` method.
+message WaitDisconnectionRequest {
+  // Connection to wait disconnection from.
+  Connection connection = 1;
+}
+
 // Request of the `StartAdvertising` method.
 message StartAdvertisingRequest {
   // `true` to use legacy advertising.
@@ -382,8 +390,8 @@ message StopAdvertisingRequest {
   AdvertisingSet set = 1;
 }
 
-// Request of the `StartScanning` method.
-message StartScanningRequest {
+// Request of the `Scan` method.
+message ScanRequest {
   // `true` the use legacy scanning.
   // The implementation shall fail when set to `false` and
   // extended scanning is not supported.
@@ -399,7 +407,7 @@ message StartScanningRequest {
   repeated PrimaryPhy phys = 6;
 }
 
-// Response of the `StartScanning` method.
+// Response of the `Scan` method.
 message ScanningResponse {
   // `true` if the response is legacy.
   bool legacy = 1;
@@ -451,7 +459,7 @@ message ScanningResponse {
   DataTypes data = 20;
 }
 
-// Response of the `StartInquiry` method.
+// Response of the `Inquiry` method.
 message InquiryResponse {
   bytes address = 1;
   uint32 page_scan_repetition_mode = 2;
