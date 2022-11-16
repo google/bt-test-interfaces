@@ -103,7 +103,7 @@ enum SecondaryPhy {
   SECONDARY_CODED = 2;
 }
 
-// Discoverability modes (BR/EDR only).
+// Discoverability modes.
 enum DiscoverabilityMode {
   NOT_DISCOVERABLE = 0;
   DISCOVERABLE_LIMITED = 1;
@@ -183,6 +183,7 @@ message DataTypes {
   string uri = 28; // URI
   bytes le_supported_features = 29; // LE Supported Features
   bytes manufacturer_specific_data = 30; // Manufacturer Specific Data
+  DiscoverabilityMode le_discoverability_mode = 31; // Flags LE Discoverability Mode
 }
 
 // Response of the `ReadLocalAddress` method.
