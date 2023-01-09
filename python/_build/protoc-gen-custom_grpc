@@ -56,7 +56,7 @@ def generate_service_method(imports, file, service, method):
 
     if input_mode == 'stream':
         return (
-            f'def {method.name}(self, iterator, **kwargs):\n'
+            f'def {method.name}(self, iterator, timeout=None, **kwargs):\n'
             f'    return self.channel.{input_mode}_{output_mode}(\n'
             f"        '/{file.package}.{service.name}/{method.name}',\n"
             f'        request_serializer={input_type}.SerializeToString,\n'
