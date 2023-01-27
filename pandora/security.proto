@@ -245,12 +245,6 @@ message WaitSecurityResponse {
   }
 }
 
-// Request of the `RequestPairing` method.
-message RequestPairingRequest {
-  // Peer connection to start pairing with.
-  Connection connection = 1;
-}
-
 // Request of the `IsBonded` method.
 message IsBondedRequest {
   oneof address {
