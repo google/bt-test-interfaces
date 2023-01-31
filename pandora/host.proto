@@ -103,9 +103,10 @@ enum PrimaryPhy {
 
 // Advertisement secondary PHY types.
 enum SecondaryPhy {
-  SECONDARY_1M = 0;
-  SECONDARY_2M = 1;
-  SECONDARY_CODED = 2;
+  SECONDARY_NONE = 0;
+  SECONDARY_1M = 1;
+  SECONDARY_2M = 2;
+  SECONDARY_CODED = 3;
 }
 
 // Discoverability modes.
