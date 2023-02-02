@@ -16,168 +16,447 @@
 
 """Custom mmi2grpc gRPC compiler."""
 
+import os
 import sys
 
-from google.protobuf.compiler.plugin_pb2 import CodeGeneratorRequest, \
-    CodeGeneratorResponse
+from typing import Dict, List, Optional, Set, Tuple, Union
+
+from google.protobuf.compiler.plugin_pb2 import CodeGeneratorRequest, CodeGeneratorResponse
+from google.protobuf.descriptor import (
+    FieldDescriptor
+)
+from google.protobuf.descriptor_pb2 import (
+    FileDescriptorProto,
+    EnumDescriptorProto,
+    DescriptorProto,
+    ServiceDescriptorProto,
+    MethodDescriptorProto,
+    FieldDescriptorProto,
+)
+
+_REQUEST = CodeGeneratorRequest.FromString(sys.stdin.buffer.read())
 
 
-def eprint(*args, **kwargs):
-    print(*args, file=sys.stderr, **kwargs)
+def find_type_in_file(proto_file: FileDescriptorProto, type_name: str) -> Optional[Union[DescriptorProto, EnumDescriptorProto]]:
+    for enum in  proto_file.enum_type:
+        if enum.name == type_name:
+            return enum
+    for message in  proto_file.message_type:
+        if message.name == type_name:
+            return message
+    return None
 
 
-request = CodeGeneratorRequest.FromString(sys.stdin.buffer.read())
+def find_type(package: str, type_name: str) -> Tuple[FileDescriptorProto, Union[DescriptorProto, EnumDescriptorProto]]:
+    for file in _REQUEST.proto_file:
+        if file.package == package and (type := find_type_in_file(file, type_name)):
+            return file, type
+    raise Exception(f'Type {package}.{type_name} not found')
 
 
-def has_type(proto_file, type_name):
-    return any(filter(lambda x: x.name == type_name, proto_file.message_type))
-
-
-def import_type(imports, type):
+def import_type(imports: List[str], file: FileDescriptorProto, type: str, use_stubs: bool=True) -> Tuple[str, Union[DescriptorProto, EnumDescriptorProto]]:
     package = type[1:type.rindex('.')]
     type_name = type[type.rindex('.')+1:]
-    file = next(filter(
-        lambda x: x.package == package and has_type(x, type_name),
-        request.proto_file))
-    python_path = file.name.replace('.proto', '').replace('/', '.')
-    as_name = python_path.replace('.', '_dot_') + '__pb2'
+    type_file, desc = find_type(package, type_name)
+    if use_stubs and type_file == file:
+        return f'{type_name}', desc
+    suffix = '_pb2'
+    if use_stubs and next((True for x in _REQUEST.file_to_generate if x == type_file.name), False):
+        suffix = '_grpc'
+    python_path = type_file.name.replace('.proto', '').replace('/', '.')
     module_path = python_path[:python_path.rindex('.')]
-    module_name = python_path[python_path.rindex('.')+1:] + '_pb2'
-    imports.add(f'from {module_path} import {module_name} as {as_name}')
-    return f'{as_name}.{type_name}'
+    module_name = python_path[python_path.rindex('.')+1:] + suffix
+    if not f'from {module_path} import {module_name}' in imports:
+        imports.append(f'from {module_path} import {module_name}')
+    return f'{module_name}.{type_name}', desc
 
 
-def generate_service_method(imports, file, service, method):
+def generate_enum(imports: List[str], file: FileDescriptorProto, enum: EnumDescriptorProto) -> List[str]:
+    return [
+        f'class {enum.name}(enum.IntEnum):',
+        *[f'    {value.name} = {value.number}' for value in enum.value],
+        ''
+    ]
+
+
+def generate_type(imports: List[str], file: FileDescriptorProto, parent: DescriptorProto, field: FieldDescriptorProto) -> Tuple[str, str]:
+    dft: str
+    if field.type == FieldDescriptor.TYPE_BYTES:
+        type = 'bytes'
+        dft = 'b\'\''
+    elif field.type == FieldDescriptor.TYPE_STRING:
+        type = 'str'
+        dft = '\'\''
+    elif field.type == FieldDescriptor.TYPE_BOOL:
+        type = 'bool'
+        dft = 'False'
+    elif field.type in [
+        FieldDescriptor.TYPE_FLOAT,
+        FieldDescriptor.TYPE_DOUBLE
+    ]:
+        type = 'float'
+        dft = '0.0'
+    elif field.type in [
+        FieldDescriptor.TYPE_INT64,
+        FieldDescriptor.TYPE_UINT64,
+        FieldDescriptor.TYPE_INT32,
+        FieldDescriptor.TYPE_FIXED64,
+        FieldDescriptor.TYPE_FIXED32,
+        FieldDescriptor.TYPE_UINT32,
+        FieldDescriptor.TYPE_SFIXED32,
+        FieldDescriptor.TYPE_SFIXED64,
+        FieldDescriptor.TYPE_SINT32,
+        FieldDescriptor.TYPE_SINT64
+    ]:
+        type = 'int'
+        dft = '0'
+    elif field.type in [FieldDescriptor.TYPE_ENUM, FieldDescriptor.TYPE_MESSAGE]:
+        parts = field.type_name.split(f".{parent.name}.", 2)
+        if len(parts) == 2:
+            type = parts[1]
+            for nested_type in parent.nested_type:
+                if nested_type.name == type:
+                    assert nested_type.options.map_entry
+                    assert field.label == FieldDescriptor.LABEL_REPEATED
+                    key_type, _ = generate_type(imports, file, nested_type, nested_type.field[0])
+                    val_type, _ = generate_type(imports, file, nested_type, nested_type.field[1])
+                    return f'Dict[{key_type}, {val_type}]', '{}'
+        type, desc = import_type(imports, file, field.type_name)
+        if isinstance(desc, EnumDescriptorProto):
+            dft = f'{type}.{desc.value[0].name}'
+        else:
+            dft = f'{type}()'
+    else:
+        raise Exception(f'TODO: {field}')
+
+    if field.label == FieldDescriptor.LABEL_REPEATED:
+        type = f'List[{type}]'
+        dft = '[]'
+
+    return type, dft
+
+
+def generate_field(imports: List[str], file: FileDescriptorProto, message: DescriptorProto, field: FieldDescriptorProto) -> Tuple[Optional[int], str, str, str]:
+    type, dft = generate_type(imports, file, message, field)
+    oneof_index = field.oneof_index if 'oneof_index' in f'{field}' else None
+    return oneof_index, field.name, type, dft
+
+
+# TODO(uael): refactor the use of this global.
+_MESSAGES: Dict[str, Tuple[List[str], List[str]]] = {}
+
+
+# TODO(uael): refactor the next function to be readable.
+def generate_message(imports: List[str], overrides: list[str], file: FileDescriptorProto, message: DescriptorProto) -> List[str]:
+    oneof: Dict[str, list[Tuple[str, str]]] = {}
+    pb2 = os.path.basename(file.name).replace('.proto', '_pb2')
+    base = f'{pb2}.{message.name}'
+    message_dict_lines: List[str] = [
+        f'class {message.name}Dict(TypedDict, total=False):',
+    ]
+    message_lines: List[str] = [
+        f'@dataclass',
+        f'class {message.name}(Message):',
+    ]
+
+    parameters: List[str] = []
+    parameters_name: List[str] = []
+
+    for field in message.field:
+        idx, name, type, dft = generate_field(imports, file, message, field)
+        parameters_name.append(f'{name}={name}')
+        if idx is not None:
+            oneof_name = message.oneof_decl[idx].name
+            oneof.setdefault(oneof_name, [])
+            oneof[oneof_name].append((name, type))
+            message_dict_lines.append(f'    {name}: {type}')
+        else:
+            parameters.append(f'{name}: {type} = {dft}')
+            dft = dft.replace('[]', 'field(default_factory=list)').replace('{}', 'field(default_factory=dict)')
+            message_lines.append(f'    {name}: {type} = {dft}')
+            message_dict_lines.append(f'    {name}: {type}')
+
+    for oneof_name, oneof_fields in oneof.items():
+        if len(message_lines) > 2: message_lines.append('')
+        message_lines.append(f'    # Oneof `{oneof_name}` variants.')
+        for name, type in oneof_fields:
+            parameters.append(f'{name}: Optional[{type}] = None')
+            message_lines.append(f'    {name}: Optional[{type}] = None')
+
+    for oneof_name, oneof_fields in oneof.items():
+        literals: str = ', '.join((f'Literal[\'{name}\']' for name, _ in oneof_fields))
+
+        message_lines.extend([
+            '',
+            '    @property',
+            f'    def {oneof_name}_variant(self) -> Union[{literals}, None]: ...'
+        ])
+
+        overrides.extend([
+            f'def _{message.name}_{oneof_name}_variant(self) -> Optional[str]:',
+            f'    return self.WhichOneof(\'{oneof_name}\')  # type: ignore',
+            '',
+            f'setattr({base}, \'{oneof_name}_variant\', property(_{message.name}_{oneof_name}_variant))',
+            ''
+        ])
+
+        types: Set[str] = set((type for _, type in oneof_fields))
+        if len(types) == 1:
+            type = 'Optional[' + types.pop() + ']'
+        else:
+            types.add('None')
+            type = 'Union[' + ', '.join(types) + ']'
+
+        message_lines.extend([
+            '',
+            '    @property',
+            f'    def {oneof_name}(self) -> {type}: ...'
+        ])
+
+        overrides.extend([
+            f'def _{message.name}_{oneof_name}(self) -> {type}:',
+            f'    variant: str = self.{oneof_name}_variant',
+            f'    if variant is None: return None',
+            '\n'.join([f'    if variant == \'{name}\': return self.{name}' for name, _ in oneof_fields]),
+            f'    raise Exception(\'Field `{oneof_name}` not found.\')',
+            '',
+            f'setattr({base}, \'{oneof_name}\', property(_{message.name}_{oneof_name}))',
+            ''
+        ])
+
+    _MESSAGES[message.name] = parameters, parameters_name
+
+    if len(message_lines) == 2:
+        message_lines.append('    pass')
+    message_lines.append('')
+
+    if len(message_dict_lines) == 1:
+        message_dict_lines = []
+    else:
+        message_dict_lines.append('')
+
+    message_lines.extend([
+        f'setattr({message.name}, \'__new__\', lambda _, *args, **kwargs: {base}(*args, **kwargs))  # type: ignore',
+        ''
+    ])
+
+    message_dict_lines.extend(message_lines)
+    return message_dict_lines
+
+
+def generate_service_method(imports: List[str], file: FileDescriptorProto, service: ServiceDescriptorProto, method: MethodDescriptorProto, sync: bool = True) -> List[str]:
     input_mode = 'stream' if method.client_streaming else 'unary'
     output_mode = 'stream' if method.server_streaming else 'unary'
 
-    input_type = import_type(imports, method.input_type)
-    output_type = import_type(imports, method.output_type)
+    input_type, _ = import_type(imports, file, method.input_type)
+    output_type, _ = import_type(imports, file, method.output_type)
+
+    input_type_pb2, _ = import_type(imports, file, method.input_type, False)
+    output_type_pb2, _ = import_type(imports, file, method.output_type, False)
+
+    iterator_type = 'Iterator' if sync else 'AsyncIterator'
+
+    parameters, parameters_name = _MESSAGES.get(input_type, ([], []))
+    args = ', '.join(parameters)
+    args_name = ', '.join(parameters_name)
+
+    if args: args = ', ' + args
+
+    if output_mode == 'stream':
+        output_type_hint = f'Stream[{output_type}]'
+    else:
+        output_type_hint = output_type if sync else f'Awaitable[{output_type}]'
 
     if input_mode == 'stream':
         return (
-            f'def {method.name}(self, iterator, timeout=None, **kwargs):\n'
+            f'def {method.name}(self, iterator: {iterator_type}[{input_type}], timeout: Optional[float] = None) -> {output_type_hint}:\n'
             f'    return self.channel.{input_mode}_{output_mode}(\n'
             f"        '/{file.package}.{service.name}/{method.name}',\n"
-            f'        request_serializer={input_type}.SerializeToString,\n'
-            f'        response_deserializer={output_type}.FromString\n'
-            f'    )(iterator, **kwargs)'
+            f'        request_serializer={input_type_pb2}.SerializeToString,  # type: ignore\n'  # type: ignore
+            f'        response_deserializer={output_type_pb2}.FromString  # type: ignore\n'
+            f'    )(iterator)'
         ).split('\n')
     else:
         return (
-            f'def {method.name}(self, wait_for_ready=None, timeout=None, **kwargs):\n'
+            f'def {method.name}(self{args}, wait_for_ready: Optional[bool] = None, timeout: Optional[float] = None) -> {output_type_hint}:\n'
             f'    return self.channel.{input_mode}_{output_mode}(\n'
             f"        '/{file.package}.{service.name}/{method.name}',\n"
-            f'        request_serializer={input_type}.SerializeToString,\n'
-            f'        response_deserializer={output_type}.FromString\n'
-            f'    )({input_type}(**kwargs), wait_for_ready=wait_for_ready, timeout=timeout)'
+            f'        request_serializer={input_type_pb2}.SerializeToString,  # type: ignore\n'
+            f'        response_deserializer={output_type_pb2}.FromString  # type: ignore\n'
+            f'    )({input_type_pb2}({args_name}), wait_for_ready=wait_for_ready, timeout=timeout)  # type: ignore'
         ).split('\n')
 
 
-def generate_service(imports, file, service):
+def generate_service(imports: List[str], file: FileDescriptorProto, service: ServiceDescriptorProto, sync: bool = True) -> List[str]:
     methods = '\n\n    '.join([
         '\n    '.join(
-            generate_service_method(imports, file, service, method)
+            generate_service_method(imports, file, service, method, sync)
         ) for method in service.method
     ])
+    channel_type = 'grpc.Channel' if sync else 'grpc.aio.Channel'
     return (
         f'class {service.name}:\n'
-        f'    def __init__(self, channel):\n'
+        f'    channel: {channel_type}\n'
+        f'\n'
+        f'    def __init__(self, channel: {channel_type}):\n'
         f'        self.channel = channel\n'
         f'\n'
         f'    {methods}\n'
     ).split('\n')
 
 
-def generate_servicer_method(method):
+def generate_servicer_method(imports: List[str], method: MethodDescriptorProto, sync: bool = True) -> List[str]:
     input_mode = 'stream' if method.client_streaming else 'unary'
+    output_mode = 'stream' if method.server_streaming else 'unary'
+
+    input_type, _ = import_type(imports, file, method.input_type)
+    output_type, _ = import_type(imports, file, method.output_type)
+
+    output_type_hint = output_type
+    if output_mode == 'stream':
+        output_type_hint = f'Generator[{output_type}, None, None]' if sync else f'AsyncGenerator[{output_type}, None]'
 
     if input_mode == 'stream':
-        return (
-            f'def {method.name}(self, request_iterator, context):\n'
-            f'    context.set_code(grpc.StatusCode.UNIMPLEMENTED)\n'
-            f'    context.set_details("Method not implemented!")\n'
+        input_stream_type = ('Iterator' if sync else 'AsyncIterator') + f'[{input_type}]'
+        lines = (('' if sync else 'async ') + (
+            f'def {method.name}(self, request: {input_stream_type}, context: grpc.ServicerContext) -> {output_type_hint}:\n'
+            f'    context.set_code(grpc.StatusCode.UNIMPLEMENTED)  # type: ignore\n'
+            f'    context.set_details("Method not implemented!")  # type: ignore\n'
             f'    raise NotImplementedError("Method not implemented!")'
-        ).split('\n')
+        )).split('\n')
     else:
-        return (
-            f'def {method.name}(self, request, context):\n'
-            f'    context.set_code(grpc.StatusCode.UNIMPLEMENTED)\n'
-            f'    context.set_details("Method not implemented!")\n'
+        lines = (('' if sync else 'async ') + (
+            f'def {method.name}(self, request: {input_type}, context: grpc.ServicerContext) -> {output_type_hint}:\n'
+            f'    context.set_code(grpc.StatusCode.UNIMPLEMENTED)  # type: ignore\n'
+            f'    context.set_details("Method not implemented!")  # type: ignore\n'
             f'    raise NotImplementedError("Method not implemented!")'
-        ).split('\n')
+        )).split('\n')
+    if output_mode == 'stream':
+        lines.append(f'    yield {output_type}()  # no-op: to make the linter happy')
+    return lines
 
 
-def generate_servicer(service):
+def generate_servicer(imports: List[str], file: FileDescriptorProto, service: ServiceDescriptorProto, sync: bool = True) -> List[str]:
     methods = '\n\n    '.join([
         '\n    '.join(
-            generate_servicer_method(method)
+            generate_servicer_method(imports, method, sync)
         ) for method in service.method
     ])
     return (
         f'class {service.name}Servicer:\n'
-        f'\n'
         f'    {methods}\n'
     ).split('\n')
 
 
-def generate_rpc_method_handler(imports, method):
+def generate_rpc_method_handler(imports: List[str], method: MethodDescriptorProto) -> List[str]:
     input_mode = 'stream' if method.client_streaming else 'unary'
     output_mode = 'stream' if method.server_streaming else 'unary'
 
-    input_type = import_type(imports, method.input_type)
-    output_type = import_type(imports, method.output_type)
+    input_type, _ = import_type(imports, file, method.input_type, False)
+    output_type, _ = import_type(imports, file, method.output_type, False)
 
     return (
-        f"'{method.name}': grpc.{input_mode}_{output_mode}_rpc_method_handler(\n"
+        f"'{method.name}': grpc.{input_mode}_{output_mode}_rpc_method_handler(  # type: ignore\n"
         f'        servicer.{method.name},\n'
-        f'        request_deserializer={input_type}.FromString,\n'
-        f'        response_serializer={output_type}.SerializeToString,\n'
+        f'        request_deserializer={input_type}.FromString,  # type: ignore\n'
+        f'        response_serializer={output_type}.SerializeToString,  # type: ignore\n'
         f'    ),\n'
     ).split('\n')
 
 
-def generate_add_servicer_to_server_method(imports, file, service):
+def generate_add_servicer_to_server_method(imports: List[str], file: FileDescriptorProto, service: ServiceDescriptorProto, sync: bool = True) -> List[str]:
     method_handlers = '    '.join([
         '\n    '.join(
             generate_rpc_method_handler(imports, method)
         ) for method in service.method
     ])
+    server_type = 'grpc.Server' if sync else 'grpc.aio.Server'
     return (
-        f'def add_{service.name}Servicer_to_server(servicer, server):\n'
+        f'def add_{service.name}Servicer_to_server(servicer: {service.name}Servicer, server: {server_type}) -> None:\n'
         f'    rpc_method_handlers = {{\n'
         f'        {method_handlers}\n'
         f'    }}\n'
-        f'    generic_handler = grpc.method_handlers_generic_handler(\n'
+        f'    generic_handler = grpc.method_handlers_generic_handler(  # type: ignore\n'
         f"        '{file.package}.{service.name}', rpc_method_handlers)\n"
-        f'    server.add_generic_rpc_handlers((generic_handler,))'
+        f'    server.add_generic_rpc_handlers((generic_handler,))\n'
     ).split('\n')
 
 
-files = []
+_HEADER = '''# Copyright 2022 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-for file_name in request.file_to_generate:
-    file = next(filter(lambda x: x.name == file_name, request.proto_file))
+"""Generated python gRPC interfaces."""
 
-    imports = set(['import grpc'])
+__version__ = "0.0.1"
 
-    services = '\n'.join(sum([
-        generate_service(imports, file, service) for service in file.service
-    ], []))
+import enum
+import grpc
 
-    servicers = '\n'.join(sum([
-        generate_servicer(service) for service in file.service
-    ], []))
+from dataclasses import dataclass, field
+from typing import Dict, Generator, Optional, List, Literal, Union, Iterator, AsyncGenerator, AsyncIterator, Awaitable, TypeVar, TypedDict
 
-    add_servicer_methods = '\n'.join(sum([
-        generate_add_servicer_to_server_method(imports, file, service) for service in file.service
-    ], []))
+from google.protobuf.message import Message
+'''
 
-    files.append(CodeGeneratorResponse.File(
-        name=file_name.replace('.proto', '_grpc.py'),
-        content='\n'.join(imports) + '\n\n' + services  + '\n\n' + servicers + '\n\n' + add_servicer_methods + '\n'
-    ))
+_EXTRAS = '''
+_T = TypeVar('_T', covariant=True)
+class Stream(Iterator[_T], grpc.Call, grpc.RpcContext): ...
+'''
 
-response = CodeGeneratorResponse(file=files)
+_AIO_EXTRAS = '''
+_T = TypeVar('_T', covariant=True)
+class Stream(AsyncIterator[_T], grpc.aio.Call, grpc.aio.RpcContext): ...
+'''
 
-sys.stdout.buffer.write(response.SerializeToString())
+_FILES: List[CodeGeneratorResponse.File] = []
+
+
+for file_name in _REQUEST.file_to_generate:
+    file: FileDescriptorProto = next(filter(lambda x: x.name == file_name, _REQUEST.proto_file))
+
+    overrides: List[str] = []
+    imports: List[str] = []
+
+    enums = '\n'.join(sum([generate_enum(imports, file, enum) for enum in file.enum_type], []))
+    messages = '\n'.join(sum([generate_message(imports, overrides, file, message) for message in file.message_type], []))
+    services = '\n'.join(sum([generate_service(imports, file, service) for service in file.service], []))
+    aio_services = '\n'.join(sum([generate_service(imports, file, service, False) for service in file.service], []))
+    servicers = '\n'.join(sum([generate_servicer(imports, file, service) for service in file.service], []))
+    aio_servicers = '\n'.join(sum([generate_servicer(imports, file, service, False) for service in file.service], []))
+    add_servicer_methods = '\n'.join(sum([generate_add_servicer_to_server_method(imports, file, service) for service in file.service], []))
+    aio_add_servicer_methods = '\n'.join(sum([generate_add_servicer_to_server_method(imports, file, service, False) for service in file.service], []))
+
+    imports.sort()
+
+    imports_str: str = '\n'.join(imports)
+    overrides_str: str = '\n'.join(overrides)
+
+    package = file_name.replace('.proto', '_grpc').replace('/', '.')
+
+    enum_import_str = f'\nfrom {package} import ' + ', '.join([e.name for e in file.enum_type]) if len(file.enum_type) else ''
+    message_import_str = f'\nfrom {package} import ' + ', '.join([m.name for m in file.message_type]) if len(file.message_type) else ''
+
+    _FILES.extend([
+        CodeGeneratorResponse.File(
+            name=file_name.replace('.proto', '_grpc.py'),
+            content=f'{_HEADER}\n\n{imports_str}\n\n{enums}\n\n{messages}\n\n{_EXTRAS}\n\n{services}\n\n{servicers}\n\n{add_servicer_methods}\n\n{overrides_str}'
+        ),
+        CodeGeneratorResponse.File(
+            name=file_name.replace('.proto', '_grpc_aio.py'),
+            content=f'{_HEADER}\n\n{imports_str}{enum_import_str}{message_import_str}\n\n{_AIO_EXTRAS}\n\n{aio_services}\n\n{aio_servicers}\n\n{aio_add_servicer_methods}'
+        )
+    ])
+
+
+sys.stdout.buffer.write(CodeGeneratorResponse(file=_FILES).SerializeToString())
