@@ -241,6 +241,9 @@ message GetConnectionResponse {
 }
 
 // Request of the `WaitConnection` method.
+//
+// Note:
+// Leaving the request empty will wait for any connection.
 message WaitConnectionRequest {
   // Peer Bluetooth device address as array of 6 bytes.
   bytes address = 1;
@@ -312,6 +315,9 @@ message GetLEConnectionResponse {
 }
 
 // Request of the `WaitLEConnection` method.
+//
+// Note:
+// Leaving the request empty will wait for any connection.
 message WaitLEConnectionRequest {
   // Peer Bluetooth device address as array of 6 bytes.
   oneof address {
