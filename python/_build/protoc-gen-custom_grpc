@@ -263,16 +263,30 @@ def generate_service_method(imports: List[str], file: FileDescriptorProto, servi
     if args: args = ', ' + args
 
     if output_mode == 'stream':
-        output_type_hint = f'Stream[{output_type}]'
+        if input_mode == 'stream':
+            output_type_hint = f'StreamStream[{input_type}, {output_type}]'
+        else:
+            output_type_hint = f'Stream[{output_type}]'
     else:
         output_type_hint = output_type if sync else f'Awaitable[{output_type}]'
 
+    if input_mode == 'stream' and output_mode == 'stream':
+        return (
+            f'def {method.name}(self, timeout: Optional[float] = None) -> {output_type_hint}:\n'
+            f'    tx: Sender[{input_type}] = Sender()\n'
+            f'    rx: Stream[{output_type}] = self.channel.{input_mode}_{output_mode}(  # type: ignore\n'
+            f"        '/{file.package}.{service.name}/{method.name}',\n"
+            f'        request_serializer={input_type_pb2}.SerializeToString,  # type: ignore\n'
+            f'        response_deserializer={output_type_pb2}.FromString  # type: ignore\n'
+            f'    )(tx)\n'
+            f'    return StreamStream(tx, rx)'
+        ).split('\n')
     if input_mode == 'stream':
         return (
             f'def {method.name}(self, iterator: {iterator_type}[{input_type}], timeout: Optional[float] = None) -> {output_type_hint}:\n'
             f'    return self.channel.{input_mode}_{output_mode}(\n'
             f"        '/{file.package}.{service.name}/{method.name}',\n"
-            f'        request_serializer={input_type_pb2}.SerializeToString,  # type: ignore\n'  # type: ignore
+            f'        request_serializer={input_type_pb2}.SerializeToString,  # type: ignore\n'
             f'        response_deserializer={output_type_pb2}.FromString  # type: ignore\n'
             f'    )(iterator)'
         ).split('\n')
@@ -409,17 +423,12 @@ from typing import Dict, Generator, Optional, List, Literal, Union, Iterator, As
 from google.protobuf.message import Message
 '''
 
-_EXTRAS = '''
-_T = TypeVar('_T', covariant=True)
-class Stream(Iterator[_T], grpc.Call, grpc.RpcContext): ...
-'''
+_UTILS_PY_FILENAME = __file__.replace(os.path.basename(__file__), '_utils.py')
+with open(_UTILS_PY_FILENAME, 'r') as file: _UTILS_PY = file.read()  # type: ignore
 
-_AIO_EXTRAS = '''
-_T = TypeVar('_T', covariant=True)
-class Stream(AsyncIterator[_T], grpc.aio.Call, grpc.aio.RpcContext): ...
-'''
 
 _FILES: List[CodeGeneratorResponse.File] = []
+_UTILS_FILES: Set[str] = set()
 
 
 for file_name in _REQUEST.file_to_generate:
@@ -447,14 +456,42 @@ for file_name in _REQUEST.file_to_generate:
     enum_import_str = f'\nfrom {package} import ' + ', '.join([e.name for e in file.enum_type]) if len(file.enum_type) else ''
     message_import_str = f'\nfrom {package} import ' + ', '.join([m.name for m in file.message_type]) if len(file.message_type) else ''
 
+    utils_filename = file_name.replace(os.path.basename(file_name), '_utils.py')
+    if utils_filename not in _UTILS_FILES:
+        _UTILS_FILES.add(utils_filename)
+        _FILES.extend([
+            CodeGeneratorResponse.File(
+                name=utils_filename,
+                content=_UTILS_PY,
+            )
+        ])
+
+    super_package = package[:package.rindex('.')]
+
+    extras = f'''
+from {super_package}._utils import (
+    Sender,
+    Stream,
+    StreamStream,
+)
+'''
+
+    aio_extras = f'''
+from {super_package}._utils import (
+    AioSender as Sender,
+    AioStream as Stream,
+    AioStreamStream as StreamStream,
+)
+    '''
+
     _FILES.extend([
         CodeGeneratorResponse.File(
             name=file_name.replace('.proto', '_grpc.py'),
-            content=f'{_HEADER}\n\n{imports_str}\n\n{enums}\n\n{messages}\n\n{_EXTRAS}\n\n{services}\n\n{servicers}\n\n{add_servicer_methods}\n\n{overrides_str}'
+            content=f'{_HEADER}\n\n{imports_str}{extras}\n\n\n\n{enums}\n\n{messages}\n\n{services}\n\n{servicers}\n\n{add_servicer_methods}\n\n{overrides_str}'
         ),
         CodeGeneratorResponse.File(
             name=file_name.replace('.proto', '_grpc_aio.py'),
-            content=f'{_HEADER}\n\n{imports_str}{enum_import_str}{message_import_str}\n\n{_AIO_EXTRAS}\n\n{aio_services}\n\n{aio_servicers}\n\n{aio_add_servicer_methods}'
+            content=f'{_HEADER}\n\n{imports_str}{enum_import_str}{message_import_str}{aio_extras}\n\n{aio_services}\n\n{aio_servicers}\n\n{aio_add_servicer_methods}'
         )
     ])
 
