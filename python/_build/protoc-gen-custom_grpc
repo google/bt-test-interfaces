@@ -151,9 +151,6 @@ def generate_message(imports: List[str], overrides: list[str], file: FileDescrip
     oneof: Dict[str, list[Tuple[str, str]]] = {}
     pb2 = os.path.basename(file.name).replace('.proto', '_pb2')
     base = f'{pb2}.{message.name}'
-    message_dict_lines: List[str] = [
-        f'class {message.name}Dict(TypedDict, total=False):',
-    ]
     message_lines: List[str] = [
         f'@dataclass',
         f'class {message.name}(Message):',
@@ -169,12 +166,10 @@ def generate_message(imports: List[str], overrides: list[str], file: FileDescrip
             oneof_name = message.oneof_decl[idx].name
             oneof.setdefault(oneof_name, [])
             oneof[oneof_name].append((name, type))
-            message_dict_lines.append(f'    {name}: {type}')
         else:
             parameters.append(f'{name}: {type} = {dft}')
             dft = dft.replace('[]', 'field(default_factory=list)').replace('{}', 'field(default_factory=dict)')
             message_lines.append(f'    {name}: {type} = {dft}')
-            message_dict_lines.append(f'    {name}: {type}')
 
     for oneof_name, oneof_fields in oneof.items():
         if len(message_lines) > 2: message_lines.append('')
@@ -186,17 +181,11 @@ def generate_message(imports: List[str], overrides: list[str], file: FileDescrip
     for oneof_name, oneof_fields in oneof.items():
         literals: str = ', '.join((f'Literal[\'{name}\']' for name, _ in oneof_fields))
 
-        message_lines.extend([
-            '',
-            '    @property',
-            f'    def {oneof_name}_variant(self) -> Union[{literals}, None]: ...'
-        ])
-
         overrides.extend([
-            f'def _{message.name}_{oneof_name}_variant(self) -> Optional[str]:',
+            f'def _{message.name}_{oneof_name}_variant(self: {message.name}) -> Optional[str]:',
             f'    return self.WhichOneof(\'{oneof_name}\')  # type: ignore',
             '',
-            f'setattr({base}, \'{oneof_name}_variant\', property(_{message.name}_{oneof_name}_variant))',
+            f'setattr({base}, \'{oneof_name}_variant\', _{message.name}_{oneof_name}_variant)',
             ''
         ])
 
@@ -214,13 +203,34 @@ def generate_message(imports: List[str], overrides: list[str], file: FileDescrip
         ])
 
         overrides.extend([
-            f'def _{message.name}_{oneof_name}(self) -> {type}:',
-            f'    variant: str = self.{oneof_name}_variant',
+            f'def _{message.name}_{oneof_name}(self: {message.name}) -> {type}:',
+            f'    variant: Optional[str] = self.{oneof_name}_variant()',
             f'    if variant is None: return None',
-            '\n'.join([f'    if variant == \'{name}\': return self.{name}' for name, _ in oneof_fields]),
+            '\n'.join([f'    if variant == \'{name}\': return unwrap(self.{name})' for name, _ in oneof_fields]),
             f'    raise Exception(\'Field `{oneof_name}` not found.\')',
             '',
             f'setattr({base}, \'{oneof_name}\', property(_{message.name}_{oneof_name}))',
+            ''
+        ])
+
+        message_lines.extend([
+            f'',
+            f'    class {oneof_name}_dict(TypedDict, total=False):',
+            '\n'.join([f'        {name}: {type}' for name, type in oneof_fields]),
+            f'',
+            f'    def {oneof_name}_variant(self) -> Union[{literals}, None]: ...'
+            f'',
+            f'    def {oneof_name}_asdict(self) -> \'{message.name}.{oneof_name}_dict\': ...'
+        ])
+
+        overrides.extend([
+            f'def _{message.name}_{oneof_name}_asdict(self: {message.name}) -> \'{message.name}.{oneof_name}_dict\':',
+            f'    variant: Optional[str] = self.{oneof_name}_variant()',
+            f'    if variant is None: return {{}}',
+            '\n'.join([f'    if variant == \'{name}\': return {{\'{name}\': unwrap(self.{name})}}' for name, _ in oneof_fields]),
+            f'    raise Exception(\'Field `{oneof_name}` not found.\')',
+            '',
+            f'setattr({base}, \'{oneof_name}_asdict\', _{message.name}_{oneof_name}_asdict)',
             ''
         ])
 
@@ -230,18 +240,12 @@ def generate_message(imports: List[str], overrides: list[str], file: FileDescrip
         message_lines.append('    pass')
     message_lines.append('')
 
-    if len(message_dict_lines) == 1:
-        message_dict_lines = []
-    else:
-        message_dict_lines.append('')
-
     message_lines.extend([
         f'setattr({message.name}, \'__new__\', lambda _, *args, **kwargs: {base}(*args, **kwargs))  # type: ignore',
         ''
     ])
 
-    message_dict_lines.extend(message_lines)
-    return message_dict_lines
+    return message_lines
 
 
 def generate_service_method(imports: List[str], file: FileDescriptorProto, service: ServiceDescriptorProto, method: MethodDescriptorProto, sync: bool = True) -> List[str]:
@@ -284,7 +288,7 @@ def generate_service_method(imports: List[str], file: FileDescriptorProto, servi
     if input_mode == 'stream':
         return (
             f'def {method.name}(self, iterator: {iterator_type}[{input_type}], timeout: Optional[float] = None) -> {output_type_hint}:\n'
-            f'    return self.channel.{input_mode}_{output_mode}(\n'
+            f'    return self.channel.{input_mode}_{output_mode}(  # type: ignore\n'
             f"        '/{file.package}.{service.name}/{method.name}',\n"
             f'        request_serializer={input_type_pb2}.SerializeToString,  # type: ignore\n'
             f'        response_deserializer={output_type_pb2}.FromString  # type: ignore\n'
@@ -293,7 +297,7 @@ def generate_service_method(imports: List[str], file: FileDescriptorProto, servi
     else:
         return (
             f'def {method.name}(self{args}, wait_for_ready: Optional[bool] = None, timeout: Optional[float] = None) -> {output_type_hint}:\n'
-            f'    return self.channel.{input_mode}_{output_mode}(\n'
+            f'    return self.channel.{input_mode}_{output_mode}(  # type: ignore\n'
             f"        '/{file.package}.{service.name}/{method.name}',\n"
             f'        request_serializer={input_type_pb2}.SerializeToString,  # type: ignore\n'
             f'        response_deserializer={output_type_pb2}.FromString  # type: ignore\n'
@@ -392,7 +396,7 @@ def generate_add_servicer_to_server_method(imports: List[str], file: FileDescrip
         f'    }}\n'
         f'    generic_handler = grpc.method_handlers_generic_handler(  # type: ignore\n'
         f"        '{file.package}.{service.name}', rpc_method_handlers)\n"
-        f'    server.add_generic_rpc_handlers((generic_handler,))\n'
+        f'    server.add_generic_rpc_handlers((generic_handler,))  # type: ignore\n'
     ).split('\n')
 
 
@@ -468,30 +472,17 @@ for file_name in _REQUEST.file_to_generate:
 
     super_package = package[:package.rindex('.')]
 
-    extras = f'''
-from {super_package}._utils import (
-    Sender,
-    Stream,
-    StreamStream,
-)
-'''
-
-    aio_extras = f'''
-from {super_package}._utils import (
-    AioSender as Sender,
-    AioStream as Stream,
-    AioStreamStream as StreamStream,
-)
-    '''
+    extras = f'from {super_package}._utils import unwrap, Sender, Stream, StreamStream'
+    aio_extras = f'from {super_package}._utils import unwrap, AioSender as Sender, AioStream as Stream, AioStreamStream as StreamStream'
 
     _FILES.extend([
         CodeGeneratorResponse.File(
             name=file_name.replace('.proto', '_grpc.py'),
-            content=f'{_HEADER}\n\n{imports_str}{extras}\n\n\n\n{enums}\n\n{messages}\n\n{services}\n\n{servicers}\n\n{add_servicer_methods}\n\n{overrides_str}'
+            content=f'{_HEADER}\n\n{imports_str}\n\n{extras}\n\n\n\n{enums}\n\n{messages}\n\n{services}\n\n{servicers}\n\n{add_servicer_methods}\n\n{overrides_str}'
         ),
         CodeGeneratorResponse.File(
             name=file_name.replace('.proto', '_grpc_aio.py'),
-            content=f'{_HEADER}\n\n{imports_str}{enum_import_str}{message_import_str}{aio_extras}\n\n{aio_services}\n\n{aio_servicers}\n\n{aio_add_servicer_methods}'
+            content=f'{_HEADER}\n\n{imports_str}{enum_import_str}{message_import_str}\n\n{aio_extras}\n\n{aio_services}\n\n{aio_servicers}\n\n{aio_add_servicer_methods}'
         )
     ])
 
