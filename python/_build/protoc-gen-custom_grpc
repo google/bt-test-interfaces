@@ -126,6 +126,7 @@ def generate_type(imports: List[str], file: FileDescriptorProto, parent: Descrip
             dft = f'{type}.{desc.value[0].name}'
         else:
             dft = f'{type}()'
+            type = f"'{type}'"
     else:
         raise Exception(f'TODO: {field}')
 
