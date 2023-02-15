@@ -361,6 +361,8 @@ def generate_servicer(imports: List[str], file: FileDescriptorProto, service: Se
             generate_servicer_method(imports, method, sync)
         ) for method in service.method
     ])
+    if not methods:
+        methods = 'pass'
     return (
         f'class {service.name}Servicer:\n'
         f'    {methods}\n'
