@@ -273,19 +273,19 @@ def generate_service_method(imports: List[str], file: FileDescriptorProto, servi
         if input_mode == 'stream':
             output_type_hint = f'StreamStream[{input_type}, {output_type}]'
             if sync:
-                add_import(imports, f'from {file.package}._utils import Sender')
-                add_import(imports, f'from {file.package}._utils import Stream')
-                add_import(imports, f'from {file.package}._utils import StreamStream')
+                add_import(imports, f'from ._utils import Sender')
+                add_import(imports, f'from ._utils import Stream')
+                add_import(imports, f'from ._utils import StreamStream')
             else:
-                add_import(imports, f'from {file.package}._utils import AioSender as Sender')
-                add_import(imports, f'from {file.package}._utils import AioStream as Stream')
-                add_import(imports, f'from {file.package}._utils import AioStreamStream as StreamStream')
+                add_import(imports, f'from ._utils import AioSender as Sender')
+                add_import(imports, f'from ._utils import AioStream as Stream')
+                add_import(imports, f'from ._utils import AioStreamStream as StreamStream')
         else:
             output_type_hint = f'Stream[{output_type}]'
             if sync:
-                add_import(imports, f'from {file.package}._utils import Stream')
+                add_import(imports, f'from ._utils import Stream')
             else:
-                add_import(imports, f'from {file.package}._utils import AioStream as Stream')
+                add_import(imports, f'from ._utils import AioStream as Stream')
     else:
         output_type_hint = output_type if sync else f'Awaitable[{output_type}]'
         if not sync: add_import(imports, f'from typing import Awaitable')
