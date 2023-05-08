@@ -9,5 +9,5 @@ A test interface is defined for each Bluetooth profile.
 
 ## Supported profiles
 
-* **Host**: interfaces for general methods (pairing, connection...).
-* **A2DP**: Advanced Audio Distribution Profile.
+* **Host**: Interface for general methods (reset, connection, advertise...).
+* **Security**: Interface to trigger Bluetooth Host security pairing procedures.
