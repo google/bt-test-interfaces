@@ -9,7 +9,7 @@ dependencies = ["protobuf==4.22.0"]
 name = "pandora"
 
 [tool.flit.sdist]
-include = ["_build"]
+include = ["_build", ".."]
 
 [build-system]
 requires = ["flit_core==3.7.1", "grpcio-tools==1.51.1"]
