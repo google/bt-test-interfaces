@@ -3,7 +3,13 @@ name = "bt-test-interfaces"
 readme = "../README.md"
 authors = [{name = "Pandora", email = "pandora-core@google.com"}]
 dynamic = ["version", "description"]
+classifiers = [
+    "License :: OSI Approved :: Apache Software License"
+]
 dependencies = ["protobuf==4.22.0"]
+
+[project.urls]
+Source = "https://github.com/google/bt-test-interfaces"
 
 [tool.flit.module]
 name = "pandora"
