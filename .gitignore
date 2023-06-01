@@ -1,4 +1,5 @@
 __pycache__
+python/dist
 python/pandora/*
 !python/pandora/__init__.py
 !python/pandora/py.typed

@@ -28,10 +28,11 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install build
     - name: Build package
-      run: python -m build
+      run: python -m build python/
     - name: Publish package to PyPI
       if: github.event_name == 'release' && startsWith(github.ref, 'refs/tags')
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
+        packages-dir: python/dist/
         user: __token__
         password: ${{ secrets.PYPI_API_TOKEN }}
