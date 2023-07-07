@@ -20,7 +20,7 @@ import "pandora/host.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/wrappers.proto";
 
-option java_outer_classname = "A2DPProto";
+option java_outer_classname = "A2dpProto";
 
 // Service to trigger A2DP (Advanced Audio Distribution Profile) procedures.
 //
