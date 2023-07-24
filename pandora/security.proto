@@ -163,6 +163,9 @@ message PairingEvent {
     // devices automatically generate their PIN Code, instead of asking the
     // user to type it.
     bytes pin_code_notification = 8;
+    // SMP Pairing Request.
+    // May produce another authentication event if resopnder accepts
+    google.protobuf.Empty smp_pairing_request = 9;
   }
 }
 
@@ -172,7 +175,7 @@ message PairingEventAnswer {
   // Answer when needed to the pairing event method.
   oneof answer {
     // Numeric Comparison confirmation.
-    // Used when pairing event method is `numeric_comparison` or `just_works`.
+    // Used when pairing event method is `numeric_comparison`, `just_works`, or `smp_pairing_request`.
     bool confirm = 2;
     // Passkey typed by the user.
     // Used when pairing event method is `passkey_entry_request`.
