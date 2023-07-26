@@ -1,0 +1,152 @@
+// Copyright 2023 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package pandora.l2cap;
+
+import "google/protobuf/any.proto";
+import "google/protobuf/empty.proto";
+import "pandora/host.proto";
+
+option java_outer_classname = "L2CAPProto";
+
+service L2CAP {
+  // Establish an L2CAP channel on an ACL connection.
+  rpc Connect(ConnectRequest) returns (ConnectResponse);
+  // Wait and accept incoming L2CAP channels on an ACL connection.
+  rpc OnConnection(OnConnectionRequest) returns (stream OnConnectionResponse);
+  // Disconnect an L2CAP channel.
+  rpc Disconnect(DisconnectRequest) returns (DisconnectResponse);
+  // Wait an L2CAP channel to be disconnected.
+  rpc WaitDisconnection(WaitDisconnectionRequest)
+      returns (WaitDisconnectionResponse);
+  // Receive data from an L2CAP channel.
+  rpc Receive(ReceiveRequest) returns (stream ReceiveResponse);
+  // Send data to an L2CAP channel.
+  rpc Send(SendRequest) returns (SendResponse);
+}
+
+enum CommandRejectReason {
+  COMMAND_NOT_UNDERSTOOD = 0;
+  SIGNAL_MTU_EXCEEDED = 1;
+  INVALID_CID_IN_REQUEST = 2;
+}
+
+message Channel {
+  google.protobuf.Any cookie = 1;
+}
+
+message ConnectionOrientedChannelRequest {
+  // Protocol/Service Multiplexer.
+  uint32 psm = 1;
+  // Maximum transmission unit.
+  uint32 mtu = 2;
+}
+
+message CreditBasedChannelRequest {
+  // Simplified Protocol/Service Multiplexer.
+  uint32 spsm = 1;
+  // Maximum transmission unit.
+  uint32 mtu = 2;
+  // Maximum PDU payload size.
+  uint32 mps = 3;
+  // Maximum number of packets to transmit.
+  uint32 initial_credit = 4;
+}
+
+message FixedChannelRequest {
+  // Fixed channel identifier
+  uint32 cid = 1;
+}
+
+message ConnectRequest {
+  // BR/EDR or Low-Energy connection.
+  Connection connection = 1;
+  oneof type {
+    FixedChannelRequest fixed = 2;
+    ConnectionOrientedChannelRequest basic = 3;
+    CreditBasedChannelRequest le_credit_based = 4;
+    CreditBasedChannelRequest enhanced_credit_based = 5;
+  }
+}
+
+message ConnectResponse {
+  oneof result {
+    CommandRejectReason error = 1;
+    Channel channel = 2;
+  }
+}
+
+message OnConnectionRequest {
+  // BR/EDR or Low-Energy connection.
+  // Note: On some platforms, directional server might not be applicable, so
+  // connections on other ACL connections will also be accepted but not reported
+  Connection connection = 1;
+  oneof type {
+    FixedChannelRequest fixed = 2;
+    ConnectionOrientedChannelRequest basic = 3;
+    CreditBasedChannelRequest le_credit_based = 4;
+    CreditBasedChannelRequest enhanced_credit_based = 5;
+  }
+}
+
+message OnConnectionResponse {
+  oneof result {
+    CommandRejectReason error = 1;
+    Channel channel = 2;
+  }
+}
+
+message DisconnectRequest {
+  Channel channel = 1;
+}
+
+message DisconnectResponse {
+  oneof result {
+    CommandRejectReason error = 1;
+    google.protobuf.Empty success = 2;
+  }
+}
+
+message WaitDisconnectionRequest {
+  Channel channel = 1;
+}
+
+message WaitDisconnectionResponse {
+  oneof result {
+    CommandRejectReason error = 1;
+    google.protobuf.Empty success = 2;
+  }
+}
+
+message ReceiveRequest {
+  Channel channel = 1;
+}
+
+message ReceiveResponse {
+  bytes data = 1;
+}
+
+message SendRequest {
+  Channel channel = 1;
+  bytes data = 2;
+}
+
+message SendResponse {
+  oneof result {
+    CommandRejectReason error = 1;
+    google.protobuf.Empty success = 2;
+  }
+}
