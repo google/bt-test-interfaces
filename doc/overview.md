@@ -1,13 +1,13 @@
-# Bluetooth test interfaces
+# Pandora APIs
 
-The Pandora Bluetooth test interfaces are Remote Procedure Call (RPC) interfaces
-exposed to testing tools to trigger behaviors within a Bluetooth stack under
-test.
+Pandora Bluetooth test interfaces provide a common abstraction for Bluetooth
+testing tools to interact with all Bluetooth implementations, exposing all
+standard Bluetooth capabilities over [gRPC](https://grpc.io/).
 
 While all Bluetooth stacks are different in their supported profiles, features,
 and corresponding APIs, the goal of Pandora is to provide a set of unified
-test interfaces which they could all implement, so we can reuse and scale
-testing tools and processes across all of them.
+test interfaces which they could all implement, so testing tools can be reused
+and scaled across the entire Bluetooth ecosystem.
 
 ## Requirements
 
@@ -33,14 +33,15 @@ corresponding to its supported profiles. Additional platform/device-specific
 interfaces may also be added if necessary (but should be avoided as much as
 possible).
 
-**The same test interface can be implemented at different levels**: for
-instance, in Android, the Pandora Bluetooth test interfaces can be implemented
-both on top of Topshim (which is a Rust shim layer just on top of the stack),
-which is advantageous as tests running at that level can apply to Chrome OS as
-well, or on top of the Android Bluetooth SDK (Java) which is advantageous for
-Mainline, since the Bluetooth module includes both the stack and the SDK.
+**The same test interface can be implemented at different levels of a same
+stack**: for example, in Android, the Pandora Bluetooth test interfaces can be
+implemented both on top of Topshim (which is a Rust shim layer just on top of
+the native stack), which is advantageous as tests running at that level can
+apply to ChromeOS as well as Android, or on top of the Android Bluetooth SDK
+(Java) which is advantageous for Android, since the Bluetooth module includes
+both the native stack and the SDK.
 
-![PTS-bot on Android](images/pts-bot-aosp.svg)
+![Pandora APIs levels](images/pandora-apis-levels.svg)
 
 ## Optional features
 
