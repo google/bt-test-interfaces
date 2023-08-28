@@ -9,13 +9,13 @@ https://developers.google.com/protocol-buffers/docs/style) apply to them.
 
 ## Additional guidelines
 
-A few additional guidelines apply to the Bluetooth test interfaces to guarantee
+A few additional guidelines apply to the Bluetooth test interfaces to provide
 consistency and improve readability.
 
 ### Use proto3 syntax
 
-The protobuf compiler currently supports proto2 and proto3 syntax, but proto3
-should be used, as it is the latest version.
+The protobuf compiler supports proto2 and proto3 syntax, but proto3 should be
+used, as it is the latest version.
 
 ### Use names from the Bluetooth specification nomenclature
 
@@ -48,7 +48,7 @@ service BluetoothHost {} // ✗ Avoid
 ### Avoid long package names
 
 This makes the usage of the gRPC interface harder in some generated language
-where long package names are uncommon, for instance in rust and python.
+where long package names are uncommon, for example in rust and python.
 
 ```protobuf
 package test.interfaces.bluetooth.bredr.l2cap; // ✗ Avoid
@@ -74,7 +74,7 @@ This allows using the protocol buffers type system to describe the possible
 outcomes of the request. You don't need to describe all errors, you should only
 specify the ones that are needed by the tests.
 
-We use the [gRPC standard error model](
+Use the [gRPC standard error model](
 https://www.grpc.io/docs/guides/error/#standard-error-model) to send the other
 non specified errors (like implementation specific errors).
 
