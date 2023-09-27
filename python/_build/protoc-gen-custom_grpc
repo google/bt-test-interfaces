@@ -16,6 +16,8 @@
 
 """Custom mmi2grpc gRPC compiler."""
 
+from __future__ import annotations
+
 import os
 import sys
 
@@ -454,6 +456,8 @@ _HEADER = '''# Copyright 2022 Google LLC
 '''
 
 _UTILS_PY = f'''{_HEADER}
+
+from __future__ import annotations
 
 import asyncio
 import queue
