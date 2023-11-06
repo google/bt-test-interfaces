@@ -453,11 +453,11 @@ _HEADER = '''# Copyright 2022 Google LLC
 # limitations under the License.
 
 """Generated python gRPC interfaces."""
+
+from __future__ import annotations
 '''
 
 _UTILS_PY = f'''{_HEADER}
-
-from __future__ import annotations
 
 import asyncio
 import queue
@@ -595,9 +595,9 @@ for file_name in _REQUEST.file_to_generate:
         content='def unwrap(x):\n  assert x\n  return x\n'
     ))
 
-    pyi_imports: List[str] = ['from __future__ import annotations  # type: ignore']
-    grpc_imports: List[str] = ['from __future__ import annotations  # type: ignore', 'import grpc']
-    grpc_aio_imports: List[str] = ['from __future__ import annotations  # type: ignore', 'import grpc', 'import grpc.aio']
+    pyi_imports: List[str] = []
+    grpc_imports: List[str] = ['import grpc']
+    grpc_aio_imports: List[str] = ['import grpc', 'import grpc.aio']
 
     enums = '\n'.join(sum([generate_enum(pyi_imports, file, enum, _FILES) for enum in file.enum_type], []))
     messages = '\n'.join(sum([generate_message(pyi_imports, file, message, _FILES) for message in file.message_type], []))
