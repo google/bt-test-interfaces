@@ -467,7 +467,7 @@ import sys
 from typing import Any, AsyncIterable, AsyncIterator, Generic, Iterator, TypeVar
 
 
-_T_co = TypeVar('_T_co', covariant=True)
+_T_co = TypeVar('_T_co', covariant=True)  # pytype: disable=not-supported-yet
 _T = TypeVar('_T')
 
 
