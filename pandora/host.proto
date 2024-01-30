@@ -59,6 +59,13 @@ service Host {
   // Unlike BR/EDR `Connect`, this must not trigger or wait any
   // pairing/encryption and return as soon as the connection is complete.
   rpc ConnectLE(ConnectLERequest) returns (ConnectLEResponse);
+  // Waits for an ACL LE connection update and returns the new values of the
+  // connection parameters. Subsequent calls will wait for new connection
+  // updates before returning. Servers should cache connection updates so that
+  // none are lost before and in between calls.
+  rpc WaitConnectionUpdate(WaitConnectionUpdateRequest) returns (WaitConnectionUpdateResponse);
+  // Returns the current ACL LE connection parameters.
+  rpc GetConnectionParameters(GetConnectionParametersRequest) returns (GetConnectionParametersResponse);
   // Disconnect an ACL connection.
   // The related Connection must not be reused afterwards.
   rpc Disconnect(DisconnectRequest) returns (google.protobuf.Empty);
@@ -255,6 +262,58 @@ message ConnectLEResponse {
     // A connection with peer already exists.
     google.protobuf.Empty connection_already_exists = 3;
   }
+}
+
+// Request of the `WaitConnectionUpdate` method.
+message WaitConnectionUpdateRequest {
+  // Connection on which to wait for connection updates.
+  Connection connection = 1;
+}
+
+// Response of the `WaitConnectionUpdate` method.
+message WaitConnectionUpdateResponse {
+  // Response result.
+  oneof result {
+    // The new connection parameters on success.
+    ConnectionParameters connection_parameters = 1;
+    // No LE connection matching the Connection in the request was found.
+    google.protobuf.Empty connection_not_found = 2;
+  }
+}
+
+// Request of the `GetConnectionParameters` method.
+message GetConnectionParametersRequest {
+  // Connection whose parameters will be returned.
+  Connection connection = 1;
+}
+
+// Response of the `GetConnectionParameters` method.
+message GetConnectionParametersResponse {
+  // Response result.
+  oneof result {
+    // The current connection parameters on success.
+    ConnectionParameters connection_parameters = 1;
+    // No LE connection matching the Connection in the request was found.
+    google.protobuf.Empty connection_not_found = 2;
+  }
+}
+
+// Response of the `WaitConnectionUpdate` method.
+message ConnectionParameters {
+  // Connection interval used on this connection.
+  // Range: 0x0006 to 0x0C80
+  // Time = N × 1.25 ms
+  // Time Range: 7.5 ms to 4000 ms.
+  uint32 connection_interval = 1;
+  // Peripheral latency for the connection in number of subrated connection
+  // events.
+  // Range: 0x0000 to 0x01F3
+  uint32 peripheral_latency = 2;
+  // Supervision timeout for this connection.
+  // Range: 0x000A to 0x0C80
+  // Time = N × 10 ms
+  // Time Range: 100 ms to 32000 ms
+  uint32 supervision_timeout = 3;
 }
 
 // Request of the `Disconnect` method.
