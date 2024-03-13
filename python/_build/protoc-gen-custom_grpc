@@ -210,7 +210,7 @@ def generate_message(imports: List[str], file: FileDescriptorProto, message: Des
             type = 'Optional[' + types.pop() + ']'
         else:
             types.add('None')
-            type = 'Union[' + ', '.join(types) + ']'
+            type = 'Union[' + ', '.join(sorted(types)) + ']'
 
         nested_message_lines.extend([
             f'class {message.name}_{oneof_name}_dict(TypedDict, total=False):',
