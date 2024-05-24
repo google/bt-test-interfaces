@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package pandora;
+
+option java_outer_classname = "HIDProto";
+
+import "google/protobuf/empty.proto";
+
+service Hid {
+  // Register HID Device
+  rpc RegisterHidDevice(google.protobuf.Empty) returns (google.protobuf.Empty);
+  // Disconnect HID Device
+  rpc DisconnectHidDevice(google.protobuf.Empty) returns (google.protobuf.Empty);
+}
+
