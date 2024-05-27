@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-package pandora;
+package pandora.a2dp;
 
 import "pandora/host.proto";
 import "google/protobuf/empty.proto";
