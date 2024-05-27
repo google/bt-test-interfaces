@@ -9,9 +9,9 @@ import "google/protobuf/empty.proto";
 service Hid {
   // Register HID Device
   rpc RegisterHidDevice(google.protobuf.Empty) returns (google.protobuf.Empty);
-  // Connect HID Device
-  rpc ConnectHidDevice(google.protobuf.Empty) returns (google.protobuf.Empty);
-  // Disconnect HID Device
-  rpc DisconnectHidDevice(google.protobuf.Empty) returns (google.protobuf.Empty);
+  // Connect HID Host
+  rpc ConnectHidHost(google.protobuf.Empty) returns (google.protobuf.Empty);
+  // Disconnect HID Host
+  rpc DisconnectHidHost(google.protobuf.Empty) returns (google.protobuf.Empty);
 }
 
