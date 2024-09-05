@@ -92,6 +92,10 @@ service A2DP {
       returns (PlaybackAudioResponse);
   // Capture audio from a `Sink`
   rpc CaptureAudio(CaptureAudioRequest) returns (stream CaptureAudioResponse);
+  // Get codec configuration
+  rpc GetConfiguration(GetConfigurationRequest) returns (GetConfigurationResponse);
+  // Set codec configuration
+  rpc SetConfiguration(SetConfigurationRequest) returns (SetConfigurationResponse);
 }
 
 // Audio encoding formats.
@@ -102,6 +106,14 @@ enum AudioEncoding {
   // Interleaved stereo frames with 16-bit signed little-endian linear PCM
   // samples at 48000Hz sample rate
   PCM_S16_LE_48K_STEREO = 1;
+}
+
+// Channel mode.
+enum ChannelMode {
+  UNKNOWN = 0;
+  MONO = 1;
+  STEREO = 2;
+  DUALMONO = 3;
 }
 
 // A Token representing a Source stream (see [A2DP] 2.2).
@@ -118,6 +130,49 @@ message Sink {
   // Opaque value filled by the GRPC server, must not
   // be modified nor crafted.
   bytes cookie = 1;
+}
+
+// Vendor codec.
+message Vendor {
+  // 16 bits - Vendor identifier, assigned by BT Sig [Assigned Numbers - 7.1]
+  uint32 id = 1;
+  // 16 bits - Assigned by the vendor
+  uint32 codecId = 2;
+}
+
+// Codec identifier defined for A2DP
+message CodecId {
+  oneof type {
+    google.protobuf.Empty sbc = 1;
+    google.protobuf.Empty mpeg_aac = 2;
+    Vendor vendor = 3;
+  }
+}
+
+message CodecParameters {
+  // Channel mode: Mono, Dual-Mono or Stereo
+  ChannelMode channel_mode = 1;
+  // Sampling frequencies in Hz.
+  uint32 sampling_frequency_hz = 2;
+  // Fixed point resolution in bits per sample.
+  uint32 bit_depth = 3;
+  // Bitrate limits on a frame basis, defined in bits per second.
+  // The 0 value for both means "undefined" or "don't care".
+  uint32 min_bitrate = 4;
+  uint32 max_bitrate = 5;
+  // Low-latency configuration. The interpretation is vendor specific.
+  bool low_latency = 6;
+  // Lossless effort indication. The 'False' value can be used as "don't care".
+  bool lossless = 7;
+  // Vendor specific parameters.
+  bytes vendor_specific_parameters = 8;
+}
+
+message Configuration {
+  // Codec indentifier.
+  CodecId id = 1;
+  // Codec parameters.
+  CodecParameters parameters = 2;
 }
 
 // Request for the `OpenSource` method.
@@ -293,4 +348,30 @@ message CaptureAudioResponse {
   // The audio data is encoded in the specified `AudioEncoding` value
   // obtained in response of a `GetAudioEncoding` method call.
   bytes data = 1;
+}
+
+// Request for the `GetConfiguration` method.
+message GetConfigurationRequest {
+  // The connection to get codec configuration from.
+  Connection connection = 1;
+}
+
+// Response for the `GetConfiguration` method.
+message GetConfigurationResponse {
+  // Codec configuration.
+  Configuration configuration = 1;
+}
+
+// Request for the `SetConfiguration` method.
+message SetConfigurationRequest {
+  // The connection to set codec configuration.
+  Connection connection = 1;
+  // New codec configuration.
+  Configuration configuration = 2;
+}
+
+// Response for the `SetConfiguration` method.
+message SetConfigurationResponse {
+  // Set configuration result
+  bool success = 1;
 }
