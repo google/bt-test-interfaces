@@ -7,7 +7,7 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License"
 ]
 dependencies = [
-    "grpcio>=1.62.1",
+    "grpcio==1.62.1",
     "protobuf>=4.22.0"
 ]
 
@@ -40,6 +40,6 @@ reportImportCycles = false
 reportPrivateUsage = false
 
 [build-system]
-requires = ["flit_core==3.7.1", "grpcio-tools>=1.62.1"]
+requires = ["flit_core==3.7.1", "grpcio-tools==1.62.1"]
 build-backend = "_build.backend"
 backend-path = ["."]
