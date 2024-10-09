@@ -8,7 +8,7 @@ classifiers = [
 ]
 dependencies = [
     "grpcio==1.62.1",
-    "protobuf>=4.22.0"
+    "protobuf==4.24.2"
 ]
 
 [project.urls]
