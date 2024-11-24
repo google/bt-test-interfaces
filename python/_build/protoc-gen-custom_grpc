@@ -51,8 +51,9 @@ def find_type_in_file(proto_file: FileDescriptorProto, type_name: str) -> Option
 
 def find_type(package: str, type_name: str) -> Tuple[FileDescriptorProto, Union[DescriptorProto, EnumDescriptorProto]]:
     for file in _REQUEST.proto_file:
-        if file.package == package and (type := find_type_in_file(file, type_name)):
-            return file, type
+        type_ = find_type_in_file(file, type_name)
+        if file.package == package and type_:
+            return file, type_
     raise Exception(f'Type {package}.{type_name} not found')
 
 
