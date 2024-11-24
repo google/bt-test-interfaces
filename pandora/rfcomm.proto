@@ -1,0 +1,125 @@
+// Copyright 2023 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package pandora.rfcomm;
+
+import "google/protobuf/any.proto";
+import "google/protobuf/empty.proto";
+import "pandora/host.proto";
+
+option java_outer_classname = "RFCOMMProto";
+
+service RFCOMM {
+  // List registered RFCOMM channels. (Server only)
+  rpc ListChannels(ListChannelsRequest) returns (ListChannelsResponse);
+  // Establish an RFCOMM channel on an ACL connection.
+  rpc Connect(ConnectRequest) returns (ConnectResponse);
+  // Wait and accept incoming RFCOMM channels.
+  rpc OnConnection(OnConnectionRequest) returns (stream OnConnectionResponse);
+  // Disconnect an RFCOMM channel.
+  rpc Disconnect(DisconnectRequest) returns (DisconnectResponse);
+  // Wait an RFCOMM channel to be disconnected.
+  rpc WaitDisconnection(WaitDisconnectionRequest)
+      returns (WaitDisconnectionResponse);
+  // Receive data from an RFCOMM channel.
+  rpc Receive(ReceiveRequest) returns (stream ReceiveResponse);
+  // Send data to an RFCOMM channel.
+  rpc Send(SendRequest) returns (SendResponse);
+}
+
+message Channel {
+  google.protobuf.Any cookie = 1;
+}
+
+message ConnectRequest {
+  // BR/EDR connection.
+  Connection connection = 1;
+  oneof type {
+    // Connect to the given RFCOMM server channel
+    uint32 channel = 2;
+    // Discover service with the given UUID, and connect to its included channel
+    string uuid = 3;
+  }
+}
+
+message ConnectResponse {
+  oneof result {
+    Channel channel = 1;
+  }
+}
+
+message OnConnectionRequest {
+  oneof type {
+    // Listen on the given RFCOMM server channel
+    uint32 channel = 1;
+    // Register SDP entries with given UUID, and allocate an RFCOMM server
+    // channel
+    string uuid = 2;
+  }
+}
+
+message OnConnectionResponse {
+  // BR/EDR connection.
+  Connection connection = 1;
+  oneof result {
+    Channel channel = 2;
+  }
+}
+
+message ListChannelsRequest {}
+
+message ListChannelsResponse {
+  repeated uint32 channels = 1;
+}
+
+message DisconnectRequest {
+  Channel channel = 1;
+}
+
+message DisconnectResponse {
+  oneof result {
+    google.protobuf.Empty success = 1;
+  }
+}
+
+message WaitDisconnectionRequest {
+  Channel channel = 1;
+}
+
+message WaitDisconnectionResponse {
+  oneof result {
+    google.protobuf.Empty success = 1;
+  }
+}
+
+message ReceiveRequest {
+  Channel channel = 1;
+}
+
+message ReceiveResponse {
+  bytes data = 1;
+}
+
+message SendRequest {
+  Channel channel = 1;
+  bytes data = 2;
+}
+
+message SendResponse {
+  oneof result {
+    google.protobuf.Empty success = 1;
+  }
+}
